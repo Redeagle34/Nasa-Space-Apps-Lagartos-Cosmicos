@@ -43,6 +43,9 @@
                 <button type="submit" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full text-lg font-semibold transition-all duration-300">
                     Visualizar
                 </button>
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input id="useGemini" type="checkbox" class="w-4 h-4" /> Analizar con Gemini (backend)
+                </label>
                 <button id="testApiBtn" type="button">Test Backend Connection</button>
                 <div id="testApiResult"></div>
             </form>
@@ -74,23 +77,38 @@
             antialias: true 
         });
 
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.position.setZ(15);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.position.setZ(20);
 
         // Se agrega un color de fondo para mejorar el contraste inicial
         scene.background = new THREE.Color(0x000011);
 
-        // --- Creación del Planeta Tierra ---
-        const earthGeometry = new THREE.SphereGeometry(5, 64, 64);
+        // --- Creación del Planeta Tierra (más realista) ---
+        const EARTH_RADIUS = 7; // más grande
+        const earthGeometry = new THREE.SphereGeometry(EARTH_RADIUS, 96, 96);
         const textureLoader = new THREE.TextureLoader();
-        const earthTexture = textureLoader.load('https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg');
-        // Se usa MeshBasicMaterial para que la textura sea visible sin depender de la iluminación
-        const earthMaterial = new THREE.MeshBasicMaterial({ 
-            map: earthTexture,
+        const earthColorMap = textureLoader.load('https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg');
+        const earthBumpMap = textureLoader.load('https://threejs.org/examples/textures/earthbump1k.jpg');
+        const earthSpecMap = textureLoader.load('https://threejs.org/examples/textures/earthspec1k.jpg');
+
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            map: earthColorMap,
+            bumpMap: earthBumpMap,
+            bumpScale: 0.05,
+            specularMap: earthSpecMap,
+            specular: new THREE.Color('grey')
         });
+
         const earth = new THREE.Mesh(earthGeometry, earthMaterial);
         scene.add(earth);
+
+        // Capa de nubes
+        const cloudGeometry = new THREE.SphereGeometry(EARTH_RADIUS + 0.03, 96, 96);
+        const cloudTexture = textureLoader.load('https://threejs.org/examples/textures/earthcloudmap.jpg');
+        const cloudMaterial = new THREE.MeshLambertMaterial({ map: cloudTexture, transparent: true, opacity: 0.8, depthWrite: false });
+        const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        scene.add(clouds);
         
         // --- Creación del fondo de estrellas ---
         const starGeometry = new THREE.BufferGeometry();
@@ -132,7 +150,7 @@
     let targetRotationQ = new THREE.Quaternion().copy(earth.quaternion);
     let startRotationQ = new THREE.Quaternion().copy(earth.quaternion);
     let rotateT = 1; // t en [0,1] para slerp (1 = sin movimiento)
-    let targetPosition = new THREE.Vector3(0, 0, 15);
+    let targetPosition = new THREE.Vector3(0, 0, 25);
     let startCameraPos = new THREE.Vector3();
     let cameraT = 1; // serie de t para lerp de la cámara
     let forecastRequest = null; // Para controlar cuándo mostrar el pronóstico
@@ -150,6 +168,9 @@
                 rotateT = Math.min(1, rotateT + 0.02);
                 THREE.Quaternion.slerp(startRotationQ, targetRotationQ, earth.quaternion, easeOutCubic(rotateT));
             }
+
+            // Rotación suave de las nubes (ligera)
+            if (typeof clouds !== 'undefined') clouds.rotation.y += 0.0008;
 
             // Suavizar movimiento de la cámara
             if (cameraT < 1) {
@@ -213,21 +234,65 @@
             if (lat != null && lon != null) {
                 // Centrar el globo hacia lat/lon
                 rotateEarthTo(lat, lon);
-                // Hacer zoom de la cámara
-                const target3D = latLonToVector3(lat, lon, 5);
-                const cameraOffset = target3D.clone().normalize().multiplyScalar(10);
+                // Hacer zoom de la cámara (escala con el radio de la Tierra)
+                const target3D = latLonToVector3(lat, lon, EARTH_RADIUS);
+                const cameraOffset = target3D.clone().normalize().multiplyScalar(EARTH_RADIUS * 2.5);
                 startCameraMove(cameraOffset);
 
                 forecastRequest = { city: displayName || query, query };
             } else {
                 // Fallback genérico
-                startCameraMove(new THREE.Vector3(0, 0, 8));
+                startCameraMove(new THREE.Vector3(0, 0, EARTH_RADIUS + 3));
                 forecastRequest = { city: 'un lugar desconocido', query };
             }
         });
         
         backButton.addEventListener('click', () => {
             resetView();
+        });
+
+        // --- Backend / Gemini integration helpers ---
+        async function pingBackend() {
+            try {
+                const res = await fetch('/api/ping');
+                const data = await res.json();
+                return data;
+            } catch (err) {
+                throw err;
+            }
+        }
+
+        async function analyzeWithBackend(prompt) {
+            // POST /api/analyze { prompt }
+            const res = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            if (!res.ok) throw new Error('Analyze request failed');
+            return await res.json(); // expected: { refinedPrompt, location: { lat, lon, name }, extra }
+        }
+
+        async function sendToBackend(payload) {
+            // POST /api/submit { payload }
+            const res = await fetch('/api/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('Submit request failed');
+            return await res.json();
+        }
+
+        document.getElementById('testApiBtn').addEventListener('click', async () => {
+            const out = document.getElementById('testApiResult');
+            out.textContent = 'Pinging backend...';
+            try {
+                const r = await pingBackend();
+                out.textContent = `Backend: ${JSON.stringify(r)}`;
+            } catch (err) {
+                out.textContent = `Error: ${err.message}`;
+            }
         });
 
         function latLonToVector3(lat, lon, radius) {
@@ -323,6 +388,7 @@
         });
 
     </script>
+
     <script src="script.js"></script>
 </body>
 </html>
