@@ -1,0 +1,65 @@
+# Proyecto: Will It Rain On My Parade? (NASA Space Apps 2025)
+Resumen:
+- Objetivo: construir una web-app que responda: "¿Lloverá / cuál es el riesgo climático para este lugar y fecha/hora?".
+- Entregables mínimos: API /api/predict + web frontend, modelo o heurística que combine observaciones y pronósticos, documentación y tests.
+- Fuentes de datos: NASA POWER (Daily/Hourly/Climatology APIs), NASA GIBS (WMTS/WMS tiles), y un servicio de pronóstico (Open-Meteo / NOAA) como fallback.
+- Fecha/Evento: hackathon NASA Space Apps 2025 (global). Prioridad: MVP funcionando localmente con Docker, deploy opcional en Render/Vercel.
+
+API contract (obligatorio)
+- Endpoint: POST /api/predict
+- Request JSON:
+  {
+    "lat": <float>,
+    "lon": <float>,
+    "date": "YYYY-MM-DD",
+    "time": "HH:MM"         // opcional, default "12:00"
+  }
+- Response JSON (MVP):
+  {
+    "prob_rain": 0.72,             // 0..1
+    "risk_level": "moderado",      // bajo / moderado / alto
+    "reasoning": {
+       "features": { "humidity": 78, "departure_precip": 2.4, "wind": 5.3 },
+       "model": "random_forest_v1",
+       "data_sources": ["NASA_POWER", "OPEN_METEO"]
+    },
+    "visual_layers": {
+       "satellite_tile_url": "<wmts url>",
+       "timeseries": [ { "datetime":"2025-10-04T12:00Z", "precip":0.2 }, ... ]
+    }
+  }
+
+Requisitos funcionales:
+- Usar al menos 2 fuentes de datos (una observacional: POWER/GIBS; otra: pronóstico/historic).
+- Caching local de llamadas externas con TTL (ej. Redis o file cache, TTL=1h).
+- Tests unitarios que mockeen APIs externas.
+- Dockerfile y docker-compose mínimo (frontend + backend).
+- README con instrucciones de ejecución y ejemplos curl.
+
+Calidad de código:
+- Backend: Python 3.10+, FastAPI, pydantic para schemas, SQLAlchemy (optional) o SQLite.
+- ML: scikit-learn (RandomForest o logistic) para MVP; serializar con joblib.
+- Frontend: React + Leaflet o Mapbox (Leaflet + OSM recomendado).
+- Linter: black + isort + flake8.
+- CI: GitHub Actions que ejecute tests y build docker.
+
+Prioridades (MVP → Bonus):
+1) Endpoint /api/predict con lógica fallback (POWER -> OPEN_METEO).
+2) Frontend simple que haga POST /api/predict y muestre probabilidad + mapa.
+3) Training notebook con pipeline reproducible (notebook + script).
+4) Tests + docker-compose + README.
+5) Visualizaciones avanzadas (animación de capas GIBS, explainability).
+
+Entrega esperada por Copilot en cada request:
+- Código probado (unit tests), docstrings y README updates.
+- Si pide implementar X, primero generar tests que fallen, luego generar implementación (TDD).
+- Proponer una PR description clara con lo que cambió.
+
+Constraints:
+- No hardcodear API keys en el repo.
+- Mantener salidas reproducibles para pruebas (seed random).
+- Manejar timezones: input date/time se interpreta como local location timezone si no se especifica.
+
+Standards:
+- Commits pequeños y atómicos; cada PR con título y descripción.
+- Siempre incluir un ejemplo curl o Postman collection.

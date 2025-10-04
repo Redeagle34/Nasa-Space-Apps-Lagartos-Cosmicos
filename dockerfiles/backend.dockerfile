@@ -1,20 +1,20 @@
 # Backend Dockerfile
-FROM node:18-alpine
+FROM python:3.11-alpine   
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY backend/package*.json ./
+COPY backend/requirements.txt ./
 
 # Install dependencies
-RUN npm install
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY backend/ .
+COPY backend .
 
 # Expose port
-EXPOSE 3001
+EXPOSE 5000
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["python", "app.py"]

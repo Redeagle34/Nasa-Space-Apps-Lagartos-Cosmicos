@@ -1,38 +1,329 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NASA Space Apps - Frontend</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Pronóstico Futurista</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Evita barras de scroll por el canvas */
+        }
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Coloca el canvas detrás del contenido */
+        }
+        /* Estilo para el placeholder del input */
+        input::placeholder {
+            color: #9ca3af;
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🚀 NASA Space Apps Project</h1>
-            <p>Frontend connected to Backend and MongoDB</p>
-        </header>
-        
-        <main>
-            <section class="data-section">
-                <h2>Add Data to Database</h2>
-                <form id="dataForm">
-                    <input type="text" id="nameInput" placeholder="Enter name" required>
-                    <input type="text" id="messageInput" placeholder="Enter message" required>
-                    <button type="submit">Add Data</button>
-                </form>
-            </section>
+<body class="bg-gray-900 text-white">
+
+    <!-- Contenedor para la escena 3D de Three.js -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Contenedor principal de la UI -->
+    <main class="relative z-10 flex flex-col items-center justify-center h-screen p-4 transition-opacity duration-1000" id="main-ui">
+        <div class="text-center w-full max-w-2xl">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6 text-shadow-lg">Cuéntame, ¿cuál es tu plan?</h1>
+            <p class="text-lg md:text-xl text-gray-300 mb-8">Escribe un lugar y una fecha futura (ej. "París en 3 meses") para obtener un pronóstico especulativo.</p>
             
-            <section class="display-section">
-                <h2>Data from Database</h2>
-                <button id="loadDataBtn">Load Data</button>
-                <div id="dataContainer">
-                    <p>Click "Load Data" to fetch data from MongoDB</p>
-                </div>
-            </section>
-        </main>
-    </div>
+            <form id="location-form" class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="location-input" placeholder="Ej: Tokio en 6 meses..." class="w-full px-5 py-4 text-lg bg-gray-800 bg-opacity-70 border border-gray-600 rounded-full focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-gray-500 transition-all duration-300">
+                <button type="submit" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full text-lg font-semibold transition-all duration-300">
+                    Visualizar
+                </button>
+                <button id="testApiBtn" type="button">Test Backend Connection</button>
+                <div id="testApiResult"></div>
+            </form>
+        </div>
+    </main>
     
+    <!-- Contenedor para mostrar los resultados del pronóstico -->
+    <div id="forecast-result" class="hidden absolute z-20 top-0 left-0 w-full h-full flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+        <div class="bg-gray-800 bg-opacity-80 p-8 rounded-2xl shadow-2xl max-w-md w-full border border-gray-700">
+            <h2 class="text-3xl font-bold mb-2" id="forecast-location"></h2>
+            <p class="text-lg text-blue-300 mb-6" id="forecast-date"></p>
+            <div id="forecast-details">
+                <!-- El contenido del pronóstico se insertará aquí -->
+            </div>
+             <p class="text-sm text-gray-400 mt-6 italic">Nota: Este es un pronóstico simulado con fines demostrativos.</p>
+            <button id="back-button" class="w-full mt-6 px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-full text-lg font-semibold transition-colors">Volver</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Importar Three.js desde un CDN
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
+
+        // --- Configuración básica de la escena ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ 
+            canvas: document.querySelector('#bg-canvas'),
+            antialias: true 
+        });
+
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.position.setZ(15);
+
+        // Se agrega un color de fondo para mejorar el contraste inicial
+        scene.background = new THREE.Color(0x000011);
+
+        // --- Creación del Planeta Tierra ---
+        const earthGeometry = new THREE.SphereGeometry(5, 64, 64);
+        const textureLoader = new THREE.TextureLoader();
+        const earthTexture = textureLoader.load('https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg');
+        // Se usa MeshBasicMaterial para que la textura sea visible sin depender de la iluminación
+        const earthMaterial = new THREE.MeshBasicMaterial({ 
+            map: earthTexture,
+        });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
+        
+        // --- Creación del fondo de estrellas ---
+        const starGeometry = new THREE.BufferGeometry();
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
+        const starVertices = [];
+        for (let i = 0; i < 10000; i++) {
+            const x = (Math.random() - 0.5) * 2000;
+            const y = (Math.random() - 0.5) * 2000;
+            const z = (Math.random() - 0.5) * 2000;
+            const dist = Math.sqrt(x*x + y*y + z*z);
+            if (dist > 300) starVertices.push(x, y, z); // Solo estrellas lejanas
+        }
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        // --- Iluminación ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0xffffff, 1.2);
+        pointLight.position.set(15, 10, 15);
+        scene.add(pointLight);
+
+        // --- Datos de ciudades para simulación de zoom (fallback local) ---
+        // Se puede expandir con más ciudades; se usará Nominatim antes que este diccionario.
+        const cityCoordinates = {
+            'tokio': { lat: 35.6895, lon: 139.6917 },
+            'paris': { lat: 48.8566, lon: 2.3522 },
+            'londres': { lat: 51.5074, lon: -0.1278 },
+            'new york': { lat: 40.7128, lon: -74.0060 },
+            'sydney': { lat: -33.8688, lon: 151.2093 },
+            'el cairo': { lat: 30.0444, lon: 31.2357 },
+            'rio de janeiro': { lat: -22.9068, lon: -43.1729 },
+            'mexico': { lat: 19.4326, lon: -99.1332 }
+        };
+
+    // --- Animación y Controles ---
+    // Usamos quaternions para rotación suave del globo
+    let targetRotationQ = new THREE.Quaternion().copy(earth.quaternion);
+    let startRotationQ = new THREE.Quaternion().copy(earth.quaternion);
+    let rotateT = 1; // t en [0,1] para slerp (1 = sin movimiento)
+    let targetPosition = new THREE.Vector3(0, 0, 15);
+    let startCameraPos = new THREE.Vector3();
+    let cameraT = 1; // serie de t para lerp de la cámara
+    let forecastRequest = null; // Para controlar cuándo mostrar el pronóstico
+
+    // Easing usado para suavizar slerp/lerp
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotación suave del planeta usando slerp entre quaternions
+            if (rotateT < 1) {
+                rotateT = Math.min(1, rotateT + 0.02);
+                THREE.Quaternion.slerp(startRotationQ, targetRotationQ, earth.quaternion, easeOutCubic(rotateT));
+            }
+
+            // Suavizar movimiento de la cámara
+            if (cameraT < 1) {
+                cameraT = Math.min(1, cameraT + 0.04);
+                // Interpolar desde la posición inicial guardada hacia la targetPosition
+                camera.position.lerpVectors(startCameraPos, targetPosition, easeOutCubic(cameraT));
+            } else {
+                camera.position.lerp(targetPosition, 0.05);
+            }
+            camera.lookAt(0, 0, 0);
+
+            // Comprobar si el zoom y rotación han terminado para mostrar el pronóstico
+            if (forecastRequest && camera.position.distanceTo(targetPosition) < 0.15 && rotateT >= 1) {
+                displayForecast(forecastRequest.city, forecastRequest.query);
+                forecastRequest = null; // Limpiar la solicitud para que no se ejecute de nuevo
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        // --- Lógica de la Interfaz ---
+        const form = document.getElementById('location-form');
+        const input = document.getElementById('location-input');
+        const mainUI = document.getElementById('main-ui');
+        const forecastResult = document.getElementById('forecast-result');
+        const backButton = document.getElementById('back-button');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = input.value.trim();
+            if (!query) return;
+
+            mainUI.style.opacity = '0';
+
+            // Intentar geocodificar con Nominatim (OpenStreetMap)
+            let lat, lon, displayName;
+            try {
+                const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+                const res = await fetch(nominatimUrl, { headers: { 'Accept-Language': 'es' } });
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    lat = parseFloat(data[0].lat);
+                    lon = parseFloat(data[0].lon);
+                    displayName = data[0].display_name;
+                }
+            } catch (err) {
+                console.warn('Nominatim error', err);
+            }
+
+            // Si Nominatim no devolvió resultados, buscar en el diccionario local por palabras clave
+            if (lat == null || lon == null) {
+                const lower = query.toLowerCase();
+                const foundCity = Object.keys(cityCoordinates).find(city => lower.includes(city));
+                if (foundCity) {
+                    ({ lat, lon } = cityCoordinates[foundCity]);
+                    displayName = foundCity;
+                }
+            }
+
+            if (lat != null && lon != null) {
+                // Centrar el globo hacia lat/lon
+                rotateEarthTo(lat, lon);
+                // Hacer zoom de la cámara
+                const target3D = latLonToVector3(lat, lon, 5);
+                const cameraOffset = target3D.clone().normalize().multiplyScalar(10);
+                startCameraMove(cameraOffset);
+
+                forecastRequest = { city: displayName || query, query };
+            } else {
+                // Fallback genérico
+                startCameraMove(new THREE.Vector3(0, 0, 8));
+                forecastRequest = { city: 'un lugar desconocido', query };
+            }
+        });
+        
+        backButton.addEventListener('click', () => {
+            resetView();
+        });
+
+        function latLonToVector3(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Inicia una transición de cámara a la posición objetivo
+        function startCameraMove(cameraOffset) {
+            // resetear t para lerp
+            cameraT = 0;
+            // guardar posición inicial de la cámara para la interpolación
+            startCameraPos.copy(camera.position);
+            // fijar targetPosition a la nueva posición
+            targetPosition.copy(cameraOffset);
+        }
+
+        // Rota la Tierra para que (lat,lon) quede frente a la cámara (= en -Z)
+        function rotateEarthTo(lat, lon) {
+            // Punto en la superficie
+            const target = latLonToVector3(lat, lon, 5).normalize();
+
+            // Queremos rotar el polo "frontal" (0,0,1) del objeto hacia target
+            const currentFront = new THREE.Vector3(0, 0, 1).applyQuaternion(earth.quaternion);
+            const axis = new THREE.Vector3().crossVectors(currentFront, target).normalize();
+            let angle = Math.acos(THREE.MathUtils.clamp(currentFront.dot(target), -1, 1));
+            if (!axis.lengthSq() || isNaN(angle)) {
+                // Si ya está alineado, no hacer nada
+                return;
+            }
+
+            // Crear quaternion objetivo que representa la rotación incremental
+            const q = new THREE.Quaternion();
+            q.setFromAxisAngle(axis, angle);
+
+            // Guardar quaternions para slerp
+            startRotationQ.copy(earth.quaternion);
+            targetRotationQ.copy(q.multiply(startRotationQ));
+            rotateT = 0;
+        }
+
+        function resetView() {
+            targetPosition.set(0, 0, 15); // Vuelve a la posición inicial
+            mainUI.style.opacity = '1';
+            forecastResult.classList.add('hidden');
+            forecastRequest = null; // Cancelar cualquier solicitud de pronóstico pendiente
+        }
+        
+        // --- Simulación de API de Pronóstico ---
+        function displayForecast(city, query) {
+            const forecastLocation = document.getElementById('forecast-location');
+            const forecastDate = document.getElementById('forecast-date');
+            const forecastDetails = document.getElementById('forecast-details');
+            
+            // Extraer el tiempo del query si existe
+            const timeMatch = query.match(/en (\d+ \w+)/);
+            const dateText = timeMatch ? `Para ${timeMatch[1]}` : 'En un futuro cercano';
+
+            forecastLocation.textContent = city.charAt(0).toUpperCase() + city.slice(1);
+            forecastDate.textContent = dateText;
+            
+            // Generar datos falsos
+            const temp = (Math.random() * 25 + 5).toFixed(1);
+            const precipitation = (Math.random() * 100).toFixed(0);
+            const wind = (Math.random() * 30 + 5).toFixed(1);
+            const summaries = ["Se esperan condiciones climáticas estables.", "Posibilidad de eventos meteorológicos anómalos.", "Tendencia a temperaturas por encima de la media histórica.", "Periodos de sequía alternados con lluvias intensas."];
+            const summary = summaries[Math.floor(Math.random() * summaries.length)];
+
+            forecastDetails.innerHTML = `
+                <div class="space-y-4 text-left">
+                    <p class="text-lg"><strong>Temperatura Promedio:</strong> ${temp}°C</p>
+                    <p class="text-lg"><strong>Probabilidad de Precipitación:</strong> ${precipitation}%</p>
+                    <p class="text-lg"><strong>Viento Promedio:</strong> ${wind} km/h</p>
+                    <p class="text-lg mt-4"><strong>Resumen:</strong> ${summary}</p>
+                </div>
+            `;
+
+            // Muestra el resultado inmediatamente (ya no usa setTimeout)
+            forecastResult.classList.remove('hidden');
+        }
+        
+        // --- Manejo del redimensionamiento de la ventana ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
+

@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   # MongoDB Database
+  
   mongodb:
     image: mongo:7.0
     container_name: nasa_mongodb
@@ -20,15 +21,11 @@ services:
   backend:
     build:
       context: .
-      dockerfile: dockerfiles/node.dockerfile
+      dockerfile: dockerfiles/backend.dockerfile
     container_name: nasa_backend
     restart: unless-stopped
-    environment:
-      PORT: 3001
-      MONGODB_URI: mongodb://mongodb:27017/nasa_space_apps
-      NODE_ENV: production
     ports:
-      - "3001:3001"
+      - "5000:5000"
     depends_on:
       - mongodb
     networks:
