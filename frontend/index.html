@@ -43,11 +43,6 @@
                 <button type="submit" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full text-lg font-semibold transition-all duration-300">
                     Visualizar
                 </button>
-                <label class="flex items-center gap-2 text-sm text-gray-300">
-                    <input id="useGemini" type="checkbox" class="w-4 h-4" /> Analizar con Gemini (backend)
-                </label>
-                <button id="testApiBtn" type="button">Test Backend Connection</button>
-                <div id="testApiResult"></div>
             </form>
         </div>
     </main>
@@ -84,28 +79,84 @@
         // Se agrega un color de fondo para mejorar el contraste inicial
         scene.background = new THREE.Color(0x000011);
 
-        // --- Creación del Planeta Tierra (más realista) ---
-    const EARTH_RADIUS = 9; // incrementado para un globo más grande
-        const earthGeometry = new THREE.SphereGeometry(EARTH_RADIUS, 96, 96);
-        const textureLoader = new THREE.TextureLoader();
-    const earthColorMap = textureLoader.load('assets/earth_texture.svg');
-        const earthBumpMap = textureLoader.load('https://threejs.org/examples/textures/earthbump1k.jpg');
-        const earthSpecMap = textureLoader.load('https://threejs.org/examples/textures/earthspec1k.jpg');
+        // --- Creación del Planeta Tierra (mejorada, WebGL-friendly) ---
+    // Use a larger globe radius for nicer framing
+    const EARTH_RADIUS = 9;
+    const earthGeometry = new THREE.SphereGeometry(EARTH_RADIUS, 96, 96);
+    const textureLoader = new THREE.TextureLoader();
 
-        const earthMaterial = new THREE.MeshPhongMaterial({
-            map: earthColorMap,
-            bumpMap: earthBumpMap,
-            bumpScale: 0.05,
-            specularMap: earthSpecMap,
-            specular: new THREE.Color('grey')
+    // Try local textures first, fallback to public high-res textures
+    const dayUrlLocal = 'textures/planets/earth_day_4096.jpg';
+    const nightUrlLocal = 'textures/planets/earth_night_4096.jpg';
+    const bumpUrlLocal = 'textures/planets/earth_bump_roughness_clouds_4096.jpg';
+
+    const dayUrlPublic = 'https://planetpixelemporium.com/images/earthmap4k.jpg';
+    const nightUrlPublic = 'https://raw.githubusercontent.com/esa/planetary-data-examples/main/textures/earthlights4k.jpg';
+    const bumpUrlPublic = 'https://threejs.org/examples/textures/earthbump1k.jpg';
+
+    // Helper that tries local then public
+    function tryLoad(localUrl, publicUrl) {
+        return new Promise((resolve) => {
+            textureLoader.load(localUrl, (tex) => resolve(tex), undefined, () => {
+                // on error, load public
+                textureLoader.load(publicUrl, (tex2) => resolve(tex2), undefined, () => resolve(null));
+            });
+        });
+    }
+
+    // Load textures (async) and build material
+    (async () => {
+        const [dayTexture, nightTexture, bumpTexture] = await Promise.all([
+            tryLoad(dayUrlLocal, dayUrlPublic),
+            tryLoad(nightUrlLocal, nightUrlPublic),
+            tryLoad(bumpUrlLocal, bumpUrlPublic)
+        ]);
+
+        if (dayTexture) {
+            dayTexture.colorSpace = THREE.SRGBColorSpace || undefined;
+            dayTexture.anisotropy = renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 4;
+        }
+        if (nightTexture) {
+            nightTexture.colorSpace = THREE.SRGBColorSpace || undefined;
+        }
+
+        const earthMaterial = new THREE.MeshStandardMaterial({
+            map: dayTexture || null,
+            emissiveMap: nightTexture || null,
+            emissive: new THREE.Color(0x000000),
+            roughnessMap: bumpTexture || null,
+            roughness: 0.6,
+            metalness: 0.0,
+            normalMap: bumpTexture || null,
+            normalScale: new THREE.Vector2(0.8, 0.8)
         });
 
         const earth = new THREE.Mesh(earthGeometry, earthMaterial);
         scene.add(earth);
 
-    // Posición inicial de la cámara basada en el radio del planeta
-    camera.position.set(0, 0, EARTH_RADIUS * 2.5);
-    camera.lookAt(0, 0, 0);
+        // Simple cloud layer if bumpTexture exists (use alpha from roughness channel if present)
+        if (bumpTexture) {
+            const cloudsGeo = new THREE.SphereGeometry(EARTH_RADIUS + 0.03, 96, 96);
+            const cloudsMat = new THREE.MeshLambertMaterial({
+                map: bumpTexture,
+                transparent: true,
+                opacity: 0.6,
+                depthWrite: false
+            });
+            const clouds = new THREE.Mesh(cloudsGeo, cloudsMat);
+            scene.add(clouds);
+        }
+
+        // Atmosphere glow (simple additive shader-like sphere)
+        const atmosphereMat = new THREE.MeshBasicMaterial({ color: 0x4db2ff, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.08, side: THREE.BackSide });
+        const atmosphere = new THREE.Mesh(earthGeometry, atmosphereMat);
+        atmosphere.scale.setScalar(1.03);
+        scene.add(atmosphere);
+
+        // Camera framing
+        camera.position.set(0, 0, EARTH_RADIUS * 2.5);
+        camera.lookAt(0, 0, 0);
+    })();
 
         
         // --- Creación del fondo de estrellas ---
@@ -276,49 +327,9 @@
             resetView();
         });
 
-        // --- Backend / Gemini integration helpers ---
-        async function pingBackend() {
-            try {
-                const res = await fetch('/api/ping');
-                const data = await res.json();
-                return data;
-            } catch (err) {
-                throw err;
-            }
-        }
-
-        async function analyzeWithBackend(prompt) {
-            // POST /api/analyze { prompt }
-            const res = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
-            });
-            if (!res.ok) throw new Error('Analyze request failed');
-            return await res.json(); // expected: { refinedPrompt, location: { lat, lon, name }, extra }
-        }
-
-        async function sendToBackend(payload) {
-            // POST /api/submit { payload }
-            const res = await fetch('/api/submit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error('Submit request failed');
-            return await res.json();
-        }
-
-        document.getElementById('testApiBtn').addEventListener('click', async () => {
-            const out = document.getElementById('testApiResult');
-            out.textContent = 'Pinging backend...';
-            try {
-                const r = await pingBackend();
-                out.textContent = `Backend: ${JSON.stringify(r)}`;
-            } catch (err) {
-                out.textContent = `Error: ${err.message}`;
-            }
-        });
+        // Backend integration removed: this frontend is now standalone.
+        // If you later want to re-enable backend features, provide the API endpoints
+        // or a replacement adapter and we can wire them back in.
 
         function latLonToVector3(lat, lon, radius) {
             const phi = (90 - lat) * (Math.PI / 180);

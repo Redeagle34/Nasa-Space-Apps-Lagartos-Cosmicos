@@ -1,25 +1,15 @@
-// Frontend JavaScript for NASA Space Apps Project
-const API_BASE_URL = 'http://localhost:5000/api';
+// Frontend-only JavaScript (backend calls removed)
 
+// Provide a simple DOM-ready initializer. Keep an exported loadData stub
+// in case other modules expect it.
+function loadData() {
+    // No backend: this area can be used to load local assets or initialize UI state.
+    console.log('Frontend running in standalone mode.');
+}
 
-const testApiBtn = document.getElementById('testApiBtn');
-const testApiResult = document.getElementById('testApiResult');
-
-testApiBtn.addEventListener('click', async () => {
-    testApiResult.textContent = 'Testing...';
-    try {
-        const response = await fetch('http://localhost:5000/api/message');
-        if (!response.ok) throw new Error('Backend not reachable');
-        const data = await response.json();
-        testApiResult.textContent = 'Success: ' + data.message;
-        testApiResult.style.color = 'green';
-    } catch (err) {
-        testApiResult.textContent = 'Failed to connect to backend!';
-        testApiResult.style.color = 'red';
-    }
-});
-
-// Load data on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
 });
+
+// Export for dev console convenience
+window.app = { loadData };
