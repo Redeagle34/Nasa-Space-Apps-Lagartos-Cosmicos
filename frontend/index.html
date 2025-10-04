@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASA Space Apps - Frontend</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 NASA Space Apps Project</h1>
+            <p>Frontend connected to Backend and MongoDB</p>
+        </header>
+        
+        <main>
+            <section class="data-section">
+                <h2>Add Data to Database</h2>
+                <form id="dataForm">
+                    <input type="text" id="nameInput" placeholder="Enter name" required>
+                    <input type="text" id="messageInput" placeholder="Enter message" required>
+                    <button type="submit">Add Data</button>
+                </form>
+            </section>
+            
+            <section class="display-section">
+                <h2>Data from Database</h2>
+                <button id="loadDataBtn">Load Data</button>
+                <div id="dataContainer">
+                    <p>Click "Load Data" to fetch data from MongoDB</p>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

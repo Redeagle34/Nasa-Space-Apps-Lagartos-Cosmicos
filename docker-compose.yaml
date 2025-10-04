@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: nasa_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: nasa_space_apps
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - nasa_network
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: dockerfiles/node.dockerfile
+    container_name: nasa_backend
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      MONGODB_URI: mongodb://mongodb:27017/nasa_space_apps
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongodb
+    networks:
+      - nasa_network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../dockerfiles/frontend.dockerfile
+    container_name: nasa_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - nasa_network
+
+networks:
+  nasa_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
