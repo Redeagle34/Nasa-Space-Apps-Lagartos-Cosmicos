@@ -79,16 +79,16 @@
 
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.position.setZ(20);
+    // La posición inicial de la cámara se ajustará dinámicamente después de crear el globo
 
         // Se agrega un color de fondo para mejorar el contraste inicial
         scene.background = new THREE.Color(0x000011);
 
         // --- Creación del Planeta Tierra (más realista) ---
-        const EARTH_RADIUS = 7; // más grande
+    const EARTH_RADIUS = 9; // incrementado para un globo más grande
         const earthGeometry = new THREE.SphereGeometry(EARTH_RADIUS, 96, 96);
         const textureLoader = new THREE.TextureLoader();
-        const earthColorMap = textureLoader.load('https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg');
+    const earthColorMap = textureLoader.load('assets/earth_texture.svg');
         const earthBumpMap = textureLoader.load('https://threejs.org/examples/textures/earthbump1k.jpg');
         const earthSpecMap = textureLoader.load('https://threejs.org/examples/textures/earthspec1k.jpg');
 
@@ -103,12 +103,10 @@
         const earth = new THREE.Mesh(earthGeometry, earthMaterial);
         scene.add(earth);
 
-        // Capa de nubes
-        const cloudGeometry = new THREE.SphereGeometry(EARTH_RADIUS + 0.03, 96, 96);
-        const cloudTexture = textureLoader.load('https://threejs.org/examples/textures/earthcloudmap.jpg');
-        const cloudMaterial = new THREE.MeshLambertMaterial({ map: cloudTexture, transparent: true, opacity: 0.8, depthWrite: false });
-        const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
-        scene.add(clouds);
+    // Posición inicial de la cámara basada en el radio del planeta
+    camera.position.set(0, 0, EARTH_RADIUS * 2.5);
+    camera.lookAt(0, 0, 0);
+
         
         // --- Creación del fondo de estrellas ---
         const starGeometry = new THREE.BufferGeometry();
@@ -125,12 +123,26 @@
         const stars = new THREE.Points(starGeometry, starMaterial);
         scene.add(stars);
 
-        // --- Iluminación ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-        scene.add(ambientLight);
-        const pointLight = new THREE.PointLight(0xffffff, 1.2);
-        pointLight.position.set(15, 10, 15);
-        scene.add(pointLight);
+    // --- Iluminación más realista ---
+    // Luz ambiental tenue para no perder detalle en sombras
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+    scene.add(ambientLight);
+
+    // HemisphereLight para simular luz difusa del cielo y tierra
+    const hemi = new THREE.HemisphereLight(0xbfe1ff, 0x444444, 0.35);
+    hemi.position.set(0, 200, 0);
+    scene.add(hemi);
+
+    // Directional light como 'Sol' para crear sombras y highlights realistas
+    const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+    sun.position.set(100, 40, 100);
+    sun.castShadow = false; // no necesitamos sombras de malla para este demo
+    scene.add(sun);
+
+    // pequeño punto de relleno para balance de especular
+    const fill = new THREE.PointLight(0xffffff, 0.15);
+    fill.position.set(-50, -20, -50);
+    scene.add(fill);
 
         // --- Datos de ciudades para simulación de zoom (fallback local) ---
         // Se puede expandir con más ciudades; se usará Nominatim antes que este diccionario.
@@ -145,40 +157,53 @@
             'mexico': { lat: 19.4326, lon: -99.1332 }
         };
 
-    // --- Animación y Controles ---
-    // Usamos quaternions para rotación suave del globo
-    let targetRotationQ = new THREE.Quaternion().copy(earth.quaternion);
-    let startRotationQ = new THREE.Quaternion().copy(earth.quaternion);
-    let rotateT = 1; // t en [0,1] para slerp (1 = sin movimiento)
-    let targetPosition = new THREE.Vector3(0, 0, 25);
-    let startCameraPos = new THREE.Vector3();
-    let cameraT = 1; // serie de t para lerp de la cámara
-    let forecastRequest = null; // Para controlar cuándo mostrar el pronóstico
+        // --- Animación y Controles ---
+        // Usamos quaternions para rotación suave del globo
+        let targetRotationQ = new THREE.Quaternion().copy(earth.quaternion);
+        let startRotationQ = new THREE.Quaternion().copy(earth.quaternion);
+        let rotateT = 1; // t en [0,1] para slerp (1 = sin movimiento)
+        // posición de cámara por defecto basada en el radio del planeta
+        let targetPosition = new THREE.Vector3(0, 0, EARTH_RADIUS * 2.5);
+        let startCameraPos = new THREE.Vector3();
+        let cameraT = 1; // serie de t para lerp de la cámara
+        let forecastRequest = null; // Para controlar cuándo mostrar el pronóstico
 
-    // Easing usado para suavizar slerp/lerp
-    function easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
-    }
+        // Duraciones dinámicas
+        let rotateDuration = 2.5; // en segundos (ajustable dinámicamente)
+        let cameraDuration = 2.5; // en segundos (ajustable dinámicamente)
+
+        // Velocidad de rotación en reposo (radians/frame aprox.)
+        const IDLE_ROTATION_SPEED = 0.0006;
+
+        // Easing usado para suavizar slerp/lerp
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
 
         function animate() {
             requestAnimationFrame(animate);
 
-            // Rotación suave del planeta usando slerp entre quaternions
+            // Rotación suave del planeta usando slerp entre quaternions (duración basada en rotateDuration)
             if (rotateT < 1) {
-                rotateT = Math.min(1, rotateT + 0.02);
+                // asumimos ~60 FPS para calcular el paso por frame
+                rotateT = Math.min(1, rotateT + (1 / (60 * rotateDuration)));
                 THREE.Quaternion.slerp(startRotationQ, targetRotationQ, earth.quaternion, easeOutCubic(rotateT));
+            } else {
+                // Rotación en reposo (suave) cuando no hay una solicitud de pronóstico activa
+                if (!forecastRequest) {
+                    earth.rotation.y += IDLE_ROTATION_SPEED;
+                    // sincronizar quaternions base para futuras slerp
+                    earth.quaternion.normalize();
+                }
             }
 
-            // Rotación suave de las nubes (ligera)
-            if (typeof clouds !== 'undefined') clouds.rotation.y += 0.0008;
-
-            // Suavizar movimiento de la cámara
+            // Suavizar movimiento de la cámara (duración dinámica)
             if (cameraT < 1) {
-                cameraT = Math.min(1, cameraT + 0.04);
+                cameraT = Math.min(1, cameraT + (1 / (60 * cameraDuration)));
                 // Interpolar desde la posición inicial guardada hacia la targetPosition
                 camera.position.lerpVectors(startCameraPos, targetPosition, easeOutCubic(cameraT));
             } else {
-                camera.position.lerp(targetPosition, 0.05);
+                camera.position.lerp(targetPosition, 0.02);
             }
             camera.lookAt(0, 0, 0);
 
@@ -314,12 +339,15 @@
             startCameraPos.copy(camera.position);
             // fijar targetPosition a la nueva posición
             targetPosition.copy(cameraOffset);
+            // Ajustar duración de la cámara en función de la distancia (más lejos -> más tiempo)
+            const dist = startCameraPos.distanceTo(targetPosition);
+            cameraDuration = Math.max(1.2, Math.min(6, dist / 3));
         }
 
         // Rota la Tierra para que (lat,lon) quede frente a la cámara (= en -Z)
         function rotateEarthTo(lat, lon) {
             // Punto en la superficie
-            const target = latLonToVector3(lat, lon, 5).normalize();
+            const target = latLonToVector3(lat, lon, EARTH_RADIUS).normalize();
 
             // Queremos rotar el polo "frontal" (0,0,1) del objeto hacia target
             const currentFront = new THREE.Vector3(0, 0, 1).applyQuaternion(earth.quaternion);
@@ -338,13 +366,19 @@
             startRotationQ.copy(earth.quaternion);
             targetRotationQ.copy(q.multiply(startRotationQ));
             rotateT = 0;
+            // Ajustar duración de la rotación basada en el ángulo (ángulo mayor -> más tiempo)
+            // Normalizamos: angle / PI en [0,1], mapeamos a [1.2s, 6s]
+            rotateDuration = Math.max(1.2, Math.min(6, (angle / Math.PI) * 5 + 0.8));
         }
 
         function resetView() {
-            targetPosition.set(0, 0, 15); // Vuelve a la posición inicial
+            targetPosition.set(0, 0, EARTH_RADIUS * 2.5); // Vuelve a la posición inicial basada en el radio
             mainUI.style.opacity = '1';
             forecastResult.classList.add('hidden');
             forecastRequest = null; // Cancelar cualquier solicitud de pronóstico pendiente
+            // Restaurar duraciones por defecto para movimientos suaves
+            rotateDuration = 2.5;
+            cameraDuration = 2.5;
         }
         
         // --- Simulación de API de Pronóstico ---
