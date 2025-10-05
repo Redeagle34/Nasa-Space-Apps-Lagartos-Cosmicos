@@ -107,7 +107,11 @@ def format_prediction_with_gemini(prediction_data):
             "table": f"| Metric | Value |\n|--------|-------|\n| Temperature | {prediction_data.get('predicted_temp_c', 'N/A')}°C |\n| Humidity | {prediction_data.get('predicted_humidity_percent', 'N/A')}% |"
         }
     
-
+parse_prompt_with_gemini("Cual es la temperatura como")
 
 #parse_prompt_with_gemini("Dame la temperatura de San Pedro dentro de un mes")
 format_prediction_with_gemini({'Peticion original':"Quiero festejar una boda el siguiente mes en Monterrey por la tarde, debería hacerlo?", 'Tiempo':"04/11/2025", 'Temperatura':20, 'Precipitacion':2, 'Viento':3, 'Humedad':10, 'Cobertura de nubes':2, 'Probabilidad de tormenta electrica':0})
+
+
+#https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/[location]/[date1]/[date2]?key=YOUR_API_KEY
+#
