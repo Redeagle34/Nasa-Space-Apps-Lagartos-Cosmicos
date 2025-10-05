@@ -4,9 +4,9 @@
     <script type="importmap">
     {
         "imports": {
-            "three": "../build/three.webgpu.js",
-            "three/webgpu": "../build/three.webgpu.js",
-            "three/tsl": "../build/three.tsl.js",
+            "three": "./build/three.webgpu.js",
+            "three/webgpu": "./build/three.webgpu.js",
+            "three/tsl": "./build/three.tsl.js",
             "three/addons/": "./jsm/"
         }
     }
@@ -681,25 +681,25 @@ async function geocodeLocation(query) {
 }
 
 const BACKEND_URL = 'http://localhost:5000/api/weather';
-async function sendPromptToBackend(prompt) {
+async function sendPromptToBackend(lat, lon, prompt) {
     try {
         console.log('🚀 Enviando prompt al backend:', prompt);
-        
+        const weatherData = await fetchWeatherData(lat, lon);
         const response = await fetch(BACKEND_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ prompt: prompt })
+            body: JSON.stringify({ prompt: prompt,
+                precipitation: weatherData.precipitation,
+                temperature: weatherData.temperature
+            })
         });
-        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         const data = await response.json();
         console.log('✅ Respuesta del backend:', data);
-        
         return data;
         
     } catch (error) {
@@ -736,7 +736,7 @@ form.addEventListener('submit', async (e) => {
             return;
         }
     }
-    
+
     // Limpia cualquier timeout previo
     if (pendingZoomTimeout) { 
         clearTimeout(pendingZoomTimeout); 
@@ -765,6 +765,35 @@ form.addEventListener('submit', async (e) => {
     // Ocultar UI principal inmediatamente
     mainUI.style.opacity = '0';
 });
+
+async function zoomToLocationAI(lat, lon, cityName, weatherData, backendPromise){
+    const target3D = latLonToVector3(lat, lon, 1);
+    
+    // Aplica la rotación actual del globo al punto objetivo
+    const rotatedTarget = rotateXZByYaw(target3D, globe.rotation.y);
+    
+    // Posiciona la cámara relativa al punto objetivo rotado con menos zoom
+    const cameraOffset = rotatedTarget.clone().normalize().multiplyScalar(2); // Aumentado de 2.5 a 3.5 para menos zoom
+    targetPosition.copy(cameraOffset);
+    
+    // Fetch real-time weather data
+    
+    // Create dynamic data based on the searched city with real weather
+    const dynamicData = {
+        city: cityName,
+        lat: lat,
+        lon: lon,
+        temperature: weatherData.temperature,
+        precipitation: weatherData.precipitation,
+        humidity: weatherData.humidity,
+        windSpeed: weatherData.windSpeed,
+        description: weatherData.description,
+        gemini: `Pronóstico actual para ${cityName}: ${weatherData.description}, temperatura ${weatherData.temperature}°C, humedad ${weatherData.humidity}%.`
+    };
+    
+    showGlassPanel(dynamicData);
+}
+
 
 // Texture alignment offset - ajusta este valor para que coincida con tu textura de la Tierra
 // Offset correcto encontrado: 90° - México aparece en Norteamérica, Tokyo en Japón
