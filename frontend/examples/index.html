@@ -277,49 +277,77 @@ const cityCoordinates = {
     'mexico':{lat:19.4326, lon:-99.1332}
 };
 
-const BACKEND_URL = 'http://localhost:5001/api/weather';
-form.addEventListener('submit', async (e)=>{
+const BACKEND_URL = 'http://localhost:5000/api/weather';
+form.addEventListener('submit', (e)=>{
     e.preventDefault();
     const query = input.value.toLowerCase().trim();
-    try {
-        console.log('🚀 Enviando prompt al backend:', query);
-        
-        const response = await fetch(BACKEND_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({prompt: query})
-        });
-    }catch {
-        console.error('❌ Error conectando con backend:', error);
-        return {
-            summary: 'Error de conexión con el servidor. Usando datos de ejemplo.',
-            table: '| Error | Conexión fallida |'
-        };
-    }
     if(!query) return;
+
+    // Decide la ciudad localmente (rápido) para poder iniciar animación
     const foundCity = Object.keys(cityCoordinates).find(city=>query.includes(city));
+
+    // Limpiar timeouts previos
+    if(pendingZoomTimeout){ clearTimeout(pendingZoomTimeout); pendingZoomTimeout = null; }
+
     if(foundCity){
         const {lat,lon} = cityCoordinates[foundCity];
-        // Limpia cualquier timeout previo
-        if(pendingZoomTimeout){ clearTimeout(pendingZoomTimeout); pendingZoomTimeout = null; }
 
+        // Marca que hay una petición en curso (no bloqueante)
+        forecastRequest = {city:foundCity, query, loading:true};
+
+        // Inicia la ruleta inmediatamente (mientras el fetch corre en segundo plano)
         const durationMs = 7000;
-        // Inicia ruleta
         const p = startRouletteAnimation(lat, lon, { durationMs, extraTurns: 6 });
-        // Inicia zoom ~1.8s antes del fin para un enlace más suave
         const earlyMs = 1800;
         pendingZoomTimeout = setTimeout(()=>{
             pendingZoomTimeout = null;
-            zoomToLocation(lat,lon + 4, foundCity);
+            zoomToLocation(lat, lon + 4, foundCity);
         }, Math.max(0, durationMs - earlyMs));
-        p.then(()=>{/* no-op: zoom ya disparado antes */});
-        forecastRequest = {city:foundCity, query};
+        p.then(()=>{/* no-op */});
+
+        // Lanzar fetch en background sin bloquear la animación
+        fetch(BACKEND_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: query })
+        })
+        .then(resp => {
+            if(!resp.ok) throw new Error('Network response was not ok');
+            return resp.json();
+        })
+        .then(data => {
+            // Si el panel ya está abierto, actualizarlo; si no, adjuntar a forecastRequest
+            if(!glassPanel.classList.contains('hidden')){
+                document.getElementById('glass-location').textContent = data.city ?? foundCity;
+                document.getElementById('glass-coordinates').textContent = `Lat: ${data.lat ?? lat}, Lon: ${data.lon ?? lon}`;
+                document.getElementById('glass-forecast').innerHTML = `<p><strong>Temperatura:</strong> ${data.temperature ?? 'N/A'}°C</p><p><strong>Precipitación:</strong> ${data.precipitation ?? 'N/A'}%</p>`;
+                document.getElementById('glass-gemini').textContent = `Interpretación Gemini: ${data.gemini ?? ''}`;
+            } else {
+                forecastRequest.data = data;
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error conectando con backend:', error);
+            // Guardar fallback en forecastRequest para uso posterior
+            forecastRequest.data = sampleBackendData;
+        });
+
     } else {
+        // No se reconoce la ciudad: realiza zoom general y marca petición en curso
         targetPosition.set(0,0,2.5);
-        forecastRequest={city:"un lugar desconocido", query};
+        forecastRequest = {city:"un lugar desconocido", query, loading:true};
+
+        // También intentar la petición de backend en background
+        fetch(BACKEND_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: query })
+        })
+        .then(resp => resp.ok ? resp.json() : Promise.reject(new Error('Network response was not ok')))
+        .then(data => { forecastRequest.data = data; })
+        .catch(err => { console.error('❌ Error conectando con backend:', err); forecastRequest.data = sampleBackendData; });
     }
+
+    // Oculta la UI principal de forma inmediata
     mainUI.style.opacity='0';
 });
 

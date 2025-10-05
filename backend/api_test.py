@@ -86,8 +86,8 @@ def parse_prompt_with_gemini(user_prompt):
         print(f"   {response.text}")
         
         parsed_result = clean_and_parse_json(response.text)
-        print(f"📊 DATOS PARSEADOS (parse_prompt):")
-        print(f"   {parsed_result}")
+        #print(f"📊 DATOS PARSEADOS (parse_prompt):")
+        #print(f"   {parsed_result}")
         
         return parsed_result
         
@@ -98,47 +98,42 @@ def parse_prompt_with_gemini(user_prompt):
         return {'longitude': None, 'latitude': None, 'time': None, 'complains': "Por favor, especifique una ubicación más precisa."}
 
 def get_weather_data(lat: float, lon: float, dt: str) -> dict:
-    """Fetch weather data from OpenWeather API for given coordinates."""
     try:
-        # Para datos actuales, usa la API actual
-        base_url = "https://api.openweathermap.org/data/2.5/weather"
-        
-        processed_data = {
-            'location': {'lat': lat, 'lon': lon},
-            'requested_date': dt,
-            'weather_data': {}
+        # Construct API URL
+        base_url = "https://api.openweathermap.org/data/2.5/forecast"
+        week_gotten = {'week': []}
+        params = {
+                'lat': lat,
+                'lon': lon,
+                'units': 'metric',  # Use metric units
+                'appid': OPEN_WEATHER_API_KEY
         }
 
-        # Parámetros para la API actual
-        params = {
-            'lat': lat,
-            'lon': lon,
-            'units': 'metric',
-            'appid': OPEN_WEATHER_API_KEY
-        }
-        
         logger.info(f"🌍 Fetching weather data for coordinates: {lat}, {lon}")
-        
-        # Make API request
+            
+            # Make API request
         response = requests.get(base_url, params=params)
-        response.raise_for_status()
+        response.raise_for_status()  # Raise exception for bad status codes
+            
+        data = response.json()
+            
+            # Extract relevant data for ML model
+        processed_data = {'week': []}
+        for i in range(len(data['list'])):
+            item = data['list'][i]
+            date = datetime.fromtimestamp(item['dt'] + i*86400).strftime('%Y-%m-%d')
+            
+            day_data = {
+                'day': {
+                    'date': date,
+                    'temp': item['main']['temp'],
+                    'humidity': item['main']['humidity'],
+                }
+            }
+            processed_data['week'].append(day_data)
+
         
-        weather_data = response.json()
-        
-        # Extraer datos relevantes correctamente
-        current_weather = {
-            'temp': weather_data.get('main', {}).get('temp'),
-            'humidity': weather_data.get('main', {}).get('humidity'),
-            'pressure': weather_data.get('main', {}).get('pressure'),
-            'wind_speed': weather_data.get('wind', {}).get('speed'),
-            'description': weather_data.get('weather', [{}])[0].get('description'),
-            'clouds': weather_data.get('clouds', {}).get('all'),
-            'city_name': weather_data.get('name', 'Unknown'),
-            'country': weather_data.get('sys', {}).get('country', 'Unknown')
-        }
-        
-        processed_data['weather_data'] = current_weather
-        
+            
         logger.info("✅ Weather data fetched successfully")
         return processed_data
         
@@ -154,8 +149,9 @@ def format_prediction_with_gemini(prediction_data):
     prompt_template = f"""
     You are a helpful weather assistant. Based on the following weather data, generate a user-friendly response for the user's request.
     The response must be a single, valid JSON object with two keys:
-    1. "summary": A short, conversational paragraph in Spanish explaining the weather conditions and recommendations.
-    2. "table": A simple Markdown table with the key weather metrics.
+    1. "interpretation": A short, conversational paragraph in Spanish explaining the weather conditions and recommendations.
+    2. "precipitation": The predicted precipitation that was found in the prediction data. 
+
 
     Do not include any markdown code block formatting in your response. Return only the JSON object.
 
@@ -211,6 +207,8 @@ def weather_endpoint():
 
         print(f"🔍 Prompt del usuario: {user_prompt}")
 
+        
+
         # PASO 1: Procesar el prompt con Gemini para extraer ubicación y fecha
         print(f"\n📍 PASO 1: Parseando prompt del usuario con Gemini...")
         parsed_result = parse_prompt_with_gemini(user_prompt)
@@ -249,17 +247,45 @@ def weather_endpoint():
 
         print(f"📊 Datos del clima obtenidos exitosamente")
 
+        # Normalize backend response to an object the frontend expects
+        week = weather_data.get('week', []) if isinstance(weather_data, dict) else []
+
+        # Compute a simple representative temperature (first entry or average)
+        temp_val = None
+        if week:
+            try:
+                temps = [d.get('day', {}).get('temp') for d in week if d.get('day', {}).get('temp') is not None]
+                precipitation = [d.get('day', {}).get('humidity') for d in week if d.get('day', {}).get('humidity') is not None]
+                print(precipitation)
+                if temps:
+                    # average temperature
+                    temp_val = round(sum(temps) / len(temps), 1)
+                if precipitation:
+                    precipitation_val = round(sum(precipitation_val)/len(precipitation), 1)
+                    print("Ran this")
+            except Exception:
+                temp_val = None
+                precipitation_val = None
+
+        # Ensure we always provide sensible fallbacks so frontend doesn't show N/A
+        response_payload = {
+            'lat': lat,
+            'lon': lon,
+            'temperature': temp_val if temp_val is not None else 20,  # fallback 20°C
+            'precipitation': precipitation_val if precipitation_val is not None else 20,
+            'gemini': '',
+            'week': week
+        }
+
         # PASO 3: Formatear la respuesta final con Gemini
         print(f"\n✨ PASO 3: Formateando respuesta final con Gemini...")
         final_response = format_prediction_with_gemini({
             'original_prompt': user_prompt,
             'location': f"Lat: {lat}, Lon: {lon}",
             'date': dt,
-            'weather_data': weather_data['weather_data']
+            'precipitation': response_payload['precipitation']
         })
-
         print(f"\n🎯 === RESPUESTA FINAL ENVIADA AL FRONTEND ===")
-        print(f"📤 {json.dumps(final_response, indent=2, ensure_ascii=False)}")
         print(f"🌟 === FIN DE PETICIÓN ===\n")
 
         return jsonify(final_response)
@@ -284,7 +310,7 @@ def test_endpoint():
 
 if __name__ == '__main__':
     # Run the Flask app
-    port = int(os.getenv('PORT', 5001))
+    port = int(os.getenv('PORT', 5000))
     print(f"🚀 === INICIANDO SERVIDOR NASA SPACE APPS ===")
     print(f"🔧 Puerto: {port}")
     print(f"🔑 Gemini API Key configurado: {'✅' if os.getenv('GEMINI_API_KEY') else '❌'}")
