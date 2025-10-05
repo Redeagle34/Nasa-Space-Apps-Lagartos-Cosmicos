@@ -19,20 +19,29 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
+        body { 
+            font-family: 'Inter', sans-serif; 
+            overflow: hidden; 
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
         }
-        #bg-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
+        #bg-canvas { position: fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
+        input::placeholder { color: rgba(255, 255, 255, 0.6); }
+        .fade-in { transition: opacity 0.5s ease-in-out; }
+        
+        /* Efectos glassmorphism más transparentes */
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
         }
-        input::placeholder {
-            color: #9ca3af;
+        
+        /* Animaciones suaves */
+        .glass-effect:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
         }
     </style>
 </head>
@@ -40,27 +49,26 @@
 
 <canvas id="bg-canvas"></canvas>
 
-<main class="relative z-10 flex flex-col items-center justify-center h-screen p-4" id="main-ui">
-    <div class="text-center w-full max-w-2xl">
-        <h1 class="text-4xl md:text-6xl font-bold mb-6">Cuéntame, ¿cuál es tu plan?</h1>
-        <p class="text-lg md:text-xl text-gray-300 mb-8">Escribe un lugar y una fecha futura (ej. "París en 3 meses").</p>
-        
-        <form id="location-form" class="flex flex-col sm:flex-row gap-3">
-            <input type="text" id="location-input" placeholder="Ej: Tokio en 6 meses..." class="w-full px-5 py-4 text-lg bg-gray-800 bg-opacity-70 border border-gray-600 rounded-full focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-gray-500 transition-all duration-300">
-            <button type="submit" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full text-lg font-semibold transition-all duration-300">
-                Visualizar
-            </button>
-        </form>
+<main id="main-ui" class="relative z-10 flex flex-col items-center justify-center h-screen p-4 fade-in">
+    <div class="bg-gradient-to-br from-white/0 via-white/0 to-white/0 backdrop-blur-sm border border-white/15 shadow-2xl rounded-3xl p-8 max-w-xl w-full text-white relative">
+        <div class="text-center">
+            <h1 class="text-3xl md:text-5xl font-bold mb-5">Cuéntame, ¿cuál es tu plan?</h1>
+            <p class="text-base md:text-lg text-gray-200 mb-6">Escribe un lugar y una fecha futura (ej. "París en 3 meses").</p>
+            <form id="location-form" class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="location-input" placeholder="Ej: Tokio en 6 meses..." class="w-full px-5 py-4 text-lg bg-white/5 backdrop-blur-sm border border-white/15 rounded-full focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-gray-300 transition-all duration-300 text-white">
+                <button type="submit" class="px-8 py-4 bg-gradient-to-r from-blue-500/80 to-blue-600/80 hover:from-blue-400/90 hover:to-blue-500/90 backdrop-blur-sm border border-blue-400/30 rounded-full text-lg font-semibold transition-all duration-300 shadow-lg">Visualizar</button>
+            </form>
+        </div>
     </div>
 </main>
 
-<div id="forecast-result" class="hidden absolute z-20 top-0 left-0 w-full h-full flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-    <div class="bg-gray-800 bg-opacity-80 p-8 rounded-2xl shadow-2xl max-w-md w-full border border-gray-700">
-        <h2 class="text-3xl font-bold mb-2" id="forecast-location"></h2>
-        <p class="text-lg text-blue-300 mb-6" id="forecast-date"></p>
-        <div id="forecast-details"></div>
-        <p class="text-sm text-gray-400 mt-6 italic">Nota: Este es un pronóstico simulado.</p>
-        <button id="back-button" class="w-full mt-6 px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-full text-lg font-semibold">Volver</button>
+<div id="glass-panel" class="hidden fixed top-0 left-0 w-full h-full z-50 flex items-center justify-center fade-in">
+    <div class="bg-gradient-to-br from-white/0 via-white/0 to-white/0 backdrop-blur-sm border border-white/15 shadow-2xl rounded-3xl p-10 max-w-lg w-full text-white relative">
+        <h2 id="glass-location" class="text-3xl font-bold mb-2 text-center"></h2>
+        <p id="glass-coordinates" class="text-sm text-gray-200 mb-4 text-center"></p>
+        <div id="glass-forecast" class="text-center text-lg space-y-2"></div>
+        <p id="glass-gemini" class="mt-4 italic text-gray-200 text-center"></p>
+        <button id="glass-close" class="mt-6 w-full px-6 py-3 bg-gradient-to-r from-blue-500/80 to-blue-600/80 hover:from-blue-400/90 hover:to-blue-500/90 backdrop-blur-sm border border-blue-400/30 rounded-full font-semibold transition-all duration-300 shadow-lg">Regresar a Inicio</button>
     </div>
 </div>
 
@@ -69,21 +77,30 @@ import * as THREE from 'three';
 import { step, normalWorldGeometry, output, texture, vec3, vec4, normalize, positionWorld, bumpMap, cameraPosition, color, uniform, mix, uv, max } from 'three/tsl';
 
 let camera, scene, renderer, globe, clock, starLayers;
-let targetPosition = new THREE.Vector3(0, 0, 5);
+let targetPosition = new THREE.Vector3(0,0,5);
 let forecastRequest = null;
+// Estado de la animación tipo ruleta
+let rouletteState = null; // { active, startTime, durationMs, initialYaw, extraSpin, targetLat, targetLon, targetLocal, resolve }
+let pendingZoomTimeout = null; // id de timeout para iniciar zoom antes del fin de la ruleta
+
+// Variables de suavidad separadas
+const smoothingIn = 0.01;  // entrada lenta
+const smoothingOut = 0.002; // salida lenta
+const fadeDurationIn = 1000;  // ms
+const fadeDurationOut = 1000; // ms
 
 init();
 
 function init() {
     clock = new THREE.Clock();
-    camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 0.1, 500);
-    camera.position.set(0, 0, 5);
+    camera = new THREE.PerspectiveCamera(25, window.innerWidth/window.innerHeight, 0.1, 500);
+    camera.position.set(0,0,5);
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x000000);
 
     const sun = new THREE.DirectionalLight('#ffffff', 2.5);
-    sun.position.set(3, 0, 3);
+    sun.position.set(3,0,3);
     scene.add(sun);
 
     const textureLoader = new THREE.TextureLoader();
@@ -93,97 +110,118 @@ function init() {
     nightTexture.colorSpace = THREE.SRGBColorSpace;
     const bumpRoughnessCloudsTexture = textureLoader.load('./textures/planets/earth_bump_roughness_clouds_4096.jpg');
 
-    // --- Globo ---
-    const sphereGeometry = new THREE.SphereGeometry(1, 64, 64);
+    const sphereGeometry = new THREE.SphereGeometry(1,64,64);
     const globeMaterial = new THREE.MeshStandardNodeMaterial();
-    const cloudsStrength = texture(bumpRoughnessCloudsTexture, uv()).b.smoothstep(0.2, 1);
+    const cloudsStrength = texture(bumpRoughnessCloudsTexture, uv()).b.smoothstep(0.2,1);
     globeMaterial.colorNode = mix(texture(dayTexture), vec3(1), cloudsStrength.mul(2));
     const roughness = max(texture(bumpRoughnessCloudsTexture).g, step(0.01, cloudsStrength));
-    globeMaterial.roughnessNode = roughness.remap(0, 1, uniform(1), uniform(0.2));
-    const night = texture(nightTexture);
-    const sunOrientation = normalWorldGeometry.dot(normalize(sun.position)).toVar();
-    const dayStrength = sunOrientation.smoothstep(-0.25, 0.5);
+    globeMaterial.roughnessNode = roughness.remap(0,1,uniform(1), uniform(0.2));
+    
+    // Solo usar textura de día - eliminar efectos de noche
     const viewDirection = positionWorld.sub(cameraPosition).normalize();
     const fresnel = viewDirection.dot(normalWorldGeometry).abs().oneMinus().toVar();
     const atmosphereDayColor = uniform(color('#4479a2'));
-    const atmosphereTwilightColor = uniform(color('#000000'));
-    const atmosphereColor = mix(atmosphereTwilightColor, atmosphereDayColor, sunOrientation.smoothstep(-0.25, 0.75));
-    const atmosphereDayStrength = sunOrientation.smoothstep(-0.5, 1);
-    const atmosphereMix = atmosphereDayStrength.mul(fresnel.pow(2)).clamp(0, 1);
-    let finalOutput = mix(night.rgb, globeMaterial.colorNode, dayStrength);
-    finalOutput = mix(finalOutput, atmosphereColor, atmosphereMix);
+    const atmosphereMix = fresnel.pow(2).clamp(0,1);
+    
+    // Solo textura de día + atmósfera
+    let finalOutput = globeMaterial.colorNode;
+    finalOutput = mix(finalOutput, atmosphereDayColor, atmosphereMix);
     globeMaterial.outputNode = vec4(finalOutput, output.a);
+    
     const bumpElevation = max(texture(bumpRoughnessCloudsTexture).r, cloudsStrength);
     globeMaterial.normalNode = bumpMap(bumpElevation);
     globe = new THREE.Mesh(sphereGeometry, globeMaterial);
     scene.add(globe);
 
-    // Atmósfera
-    const atmosphereMaterial = new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide, transparent: true });
-    let alpha = fresnel.remap(0.73, 1, 1, 0).pow(3);
-    alpha = alpha.mul(sunOrientation.smoothstep(-0.5, 1));
-    atmosphereMaterial.outputNode = vec4(atmosphereColor, alpha);
+    const atmosphereMaterial = new THREE.MeshBasicNodeMaterial({side: THREE.BackSide, transparent:true});
+    let alpha = fresnel.remap(0.73,1,1,0).pow(3);
+    // Atmósfera siempre visible - no depende de la orientación del sol
+    atmosphereMaterial.outputNode = vec4(atmosphereDayColor, alpha);
     const atmosphere = new THREE.Mesh(sphereGeometry, atmosphereMaterial);
     atmosphere.scale.setScalar(1.04);
     scene.add(atmosphere);
 
-    // --- Estrellas ultrarrealistas ---
-    function createStarField(count, radius, minSize, maxSize, speedRange) {
-        const positions = new Float32Array(count * 3);
+    function createStarField(count, radius, minSize, maxSize, speedRange){
+        const positions = new Float32Array(count*3);
         const baseOpacities = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
+        for(let i=0;i<count;i++){
             const u = Math.random();
             const v = Math.random();
-            const theta = 2 * Math.PI * u;
-            const phi = Math.acos(2 * v - 1);
-            const r = radius * (0.8 + Math.random() * 0.2);
-            positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
-            positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-            positions[i*3+2] = r * Math.cos(phi);
-            baseOpacities[i] = 0.5 + Math.random() * 0.5; // brillo base aleatorio
+            const theta = 2*Math.PI*u;
+            const phi = Math.acos(2*v-1);
+            const r = radius*(0.8 + Math.random()*0.2);
+            positions[i*3] = r*Math.sin(phi)*Math.cos(theta);
+            positions[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+            positions[i*3+2] = r*Math.cos(phi);
+            baseOpacities[i] = 0.3 + Math.random()*0.7;
         }
         const starsGeo = new THREE.BufferGeometry();
-        starsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
         const starsMat = new THREE.PointsMaterial({
-            size: 1,
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.8,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending
+            size:1,
+            color:0xffffff,
+            transparent:true,
+            opacity:0.8,
+            depthWrite:false,
+            blending:THREE.AdditiveBlending
         });
         const points = new THREE.Points(starsGeo, starsMat);
-        points.userData = { speed: speedRange[0] + Math.random()*(speedRange[1]-speedRange[0]), baseOpacities };
+        points.userData = {speed: speedRange[0] + Math.random()*(speedRange[1]-speedRange[0]), baseOpacities};
         scene.add(points);
         return points;
     }
 
     starLayers = [
-        createStarField(12000, 120, 0.5, 1.2, [0.5, 0.8]),
-        createStarField(10000, 130, 0.8, 1.5, [0.7, 1.0]),
-        createStarField(8000, 140, 1.0, 2.0, [0.9, 1.3])
+        createStarField(12000,120,0.5,1.2,[0.5,0.8]),
+        createStarField(10000,130,0.8,1.5,[0.7,1.0]),
+        createStarField(8000,140,1.0,2.0,[0.9,1.3])
     ];
 
-    renderer = new THREE.WebGPURenderer({ canvas: document.querySelector('#bg-canvas'), antialias: true });
+    renderer = new THREE.WebGPURenderer({canvas:document.querySelector('#bg-canvas'), antialias:true});
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setAnimationLoop(animate);
 }
 
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+function onWindowResize(){
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function animate() {
+function animate(){
     const delta = clock.getDelta();
-    if (!forecastRequest) globe.rotation.y += delta * 0.1;
-    camera.position.lerp(targetPosition, 0.05);
+    // Ruleta: si está activa, controla la rotación Y del globo
+    if(rouletteState && rouletteState.active){
+        const now = performance.now();
+        const t = Math.min(1, (now - rouletteState.startTime) / rouletteState.durationMs);
+        // Ease-out cúbico para salida rápida inicial y desaceleración progresiva
+        const easeOutCubic = (u)=> 1 - Math.pow(1 - u, 3);
+        const f = easeOutCubic(t);
+
+        // Giro base con vueltas extra
+        const baseYaw = rouletteState.initialYaw + rouletteState.extraSpin * f;
+
+        // Rotación simple: solo las vueltas de ruleta, sin alineación compleja
+        globe.rotation.y = baseYaw;
+        if(t >= 1){
+            rouletteState.active = false;
+            // Termina la animación con la rotación final
+            globe.rotation.y = baseYaw;
+            const res = rouletteState.resolve; rouletteState.resolve = null;
+            if(res) res();
+        }
+    } else if(!forecastRequest) {
+        globe.rotation.y += delta*0.1;
+    }
+
+    // Elegir suavidad según el estado
+    const smoothing = forecastRequest ? smoothingIn : smoothingOut;
+    camera.position.lerp(targetPosition, smoothing);
     camera.lookAt(0,0,0);
 
     const time = Date.now()*0.001;
-    starLayers.forEach((layer,i)=>{
+    starLayers.forEach(layer=>{
         const base = layer.userData.baseOpacities;
         const avgOpacity = base.reduce((sum,b)=>sum+b*(0.7+0.3*Math.sin(time*layer.userData.speed+Math.random()*Math.PI)),0)/base.length;
         layer.material.opacity = avgOpacity;
@@ -196,94 +234,682 @@ function animate() {
 const form = document.getElementById('location-form');
 const input = document.getElementById('location-input');
 const mainUI = document.getElementById('main-ui');
-const forecastResult = document.getElementById('forecast-result');
-const backButton = document.getElementById('back-button');
+const glassPanel = document.getElementById('glass-panel');
+const glassClose = document.getElementById('glass-close');
 
-const cityCoordinates = {
-    'tokio': { lat: 35.6895, lon: 159.6917 },
-    'paris': { lat: 48.8566, lon: 22.3522 },
-    'londres': { lat: 51.5074, lon: 19.8278 },
-    'new york': { lat: 40.7128, lon: -54.0060 },
-    'sydney': { lat: -33.8688, lon: 171.2093 },
-    'el cairo': { lat: 30.0444, lon: 51.2357 },
-    'rio de janeiro': { lat: -22.9068, lon: -23.1729 },
-    'mexico': { lat: 19.4326, lon: -79.1332 }
+const sampleBackendData = {
+    city:'París', lat:48.8566, lon:2.3522,
+    temperature:18, precipitation:30,
+    gemini:'Tendencia a cielos despejados en las próximas horas.'
 };
 
-form.addEventListener('submit',(e)=>{
+function showGlassPanel(data){
+    
+ 
+
+    document.getElementById('glass-location').textContent = data.city;
+    document.getElementById('glass-coordinates').textContent = `Lat: ${data.lat}, Lon: ${data.lon}`;
+    document.getElementById('glass-forecast').innerHTML = `<p><strong>Temperatura:</strong> ${data.temperature}°C</p><p><strong>Precipitación:</strong> ${data.precipitation}%</p>`;
+    document.getElementById('glass-gemini').textContent = `Interpretación Gemini: ${data.gemini}`;
+    glassPanel.classList.remove('hidden');
+    glassPanel.style.transition = `opacity ${fadeDurationIn}ms ease-in-out`;
+    glassPanel.style.opacity='0';
+    setTimeout(()=>{glassPanel.style.opacity='1';},10);
+}
+
+glassClose.addEventListener('click', () => {
+    glassPanel.style.transition = `opacity ${fadeDurationOut}ms ease-in-out`;
+    glassPanel.style.opacity='0';
+    mainUI.style.opacity = '1';
+    forecastRequest = null;
+    targetPosition.set(0,0,5);
+    setTimeout(()=> glassPanel.classList.add('hidden'), fadeDurationOut);
+});
+
+const cityCoordinates = {
+    'tokio':{lat:35.6762, lon:139.6503},
+    'paris':{lat:48.8566, lon:2.3522},
+    'londres':{lat:51.5074, lon:-0.1278},
+    'new york':{lat:40.7128, lon:-74.0060},
+    'sydney':{lat:-33.8688, lon:151.2093},
+    'el cairo':{lat:30.0444, lon:31.2357},
+    'rio de janeiro':{lat:-22.9068, lon:-43.1729},
+    'mexico':{lat:19.4326, lon:-99.1332}
+};
+
+const BACKEND_URL = 'http://localhost:5001/api/weather';
+form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const query = input.value.toLowerCase().trim();
+    try {
+        console.log('🚀 Enviando prompt al backend:', query);
+        
+        const response = await fetch(BACKEND_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({prompt: query})
+        });
+    }catch {
+        console.error('❌ Error conectando con backend:', error);
+        return {
+            summary: 'Error de conexión con el servidor. Usando datos de ejemplo.',
+            table: '| Error | Conexión fallida |'
+        };
+    }
     if(!query) return;
     const foundCity = Object.keys(cityCoordinates).find(city=>query.includes(city));
     if(foundCity){
         const {lat,lon} = cityCoordinates[foundCity];
-        zoomToLocation(lat,lon);
-        forecastRequest={city:foundCity,query};
+        // Limpia cualquier timeout previo
+        if(pendingZoomTimeout){ clearTimeout(pendingZoomTimeout); pendingZoomTimeout = null; }
+
+        const durationMs = 7000;
+        // Inicia ruleta
+        const p = startRouletteAnimation(lat, lon, { durationMs, extraTurns: 6 });
+        // Inicia zoom ~1.8s antes del fin para un enlace más suave
+        const earlyMs = 1800;
+        pendingZoomTimeout = setTimeout(()=>{
+            pendingZoomTimeout = null;
+            zoomToLocation(lat,lon + 4, foundCity);
+        }, Math.max(0, durationMs - earlyMs));
+        p.then(()=>{/* no-op: zoom ya disparado antes */});
+        forecastRequest = {city:foundCity, query};
     } else {
         targetPosition.set(0,0,2.5);
-        forecastRequest={city:"un lugar desconocido",query};
+        forecastRequest={city:"un lugar desconocido", query};
     }
     mainUI.style.opacity='0';
 });
 
-backButton.addEventListener('click',()=>resetView());
-
-function latLonToVector3(lat, lon, radius) {
-    // Esta función ya es correcta, solo la incluimos para tener el bloque completo.
-    const phi = (90 - lat) * (Math.PI / 180);
-    const theta = (lon + 180) * (Math.PI / 180);
-    const x = -(radius * Math.sin(phi) * Math.cos(theta));
-    const y = radius * Math.cos(phi);
-    const z = radius * Math.sin(phi) * Math.sin(theta);
-    return new THREE.Vector3(x, y, z);
+// Texture alignment offset - ajusta este valor para que coincida con tu textura de la Tierra
+// Offset correcto encontrado: 90° - México aparece en Norteamérica, Tokyo en Japón
+let earthYawOffsetDeg = -240; // Offset correcto que funciona
+function latLonToVector3(lat, lon, radius){
+    // Conversión estándar con offset de textura: lon=0°(+offset) hacia +Z
+    const latRad = lat * Math.PI / 180;
+    const lonRad = (lon + earthYawOffsetDeg) * Math.PI / 180;
+    const cosLat = Math.cos(latRad);
+    return new THREE.Vector3(
+        radius * cosLat * Math.sin(lonRad), // X
+        radius * Math.sin(latRad),          // Y
+        radius * cosLat * Math.cos(lonRad)  // Z
+    );
 }
 
-function zoomToLocation(lat, lon) {
-    // --- CAMBIOS CLAVE AQUÍ ---
-    // 1. Usamos el nuevo radio del globo: 1
-    const target3D = latLonToVector3(lat, lon, 1); 
-
-    // 2. Acercamos mucho más la cámara, ya que el globo es más pequeño.
-    //    Un valor de 2.5 es bueno (antes era 10). Puedes ajustar este número si quieres.
-    const cameraOffset = target3D.clone().normalize().multiplyScalar(2.5);
+function zoomToLocation(lat, lon, cityName){
+    const target3D = latLonToVector3(lat, lon, 1);
     
+    // Aplica la rotación actual del globo al punto objetivo
+    const rotatedTarget = rotateXZByYaw(target3D, globe.rotation.y);
+    
+    // Posiciona la cámara relativa al punto objetivo rotado con menos zoom
+    const cameraOffset = rotatedTarget.clone().normalize().multiplyScalar(2); // Aumentado de 2.5 a 3.5 para menos zoom
     targetPosition.copy(cameraOffset);
+    
+    // Create dynamic data based on the searched city
+    const dynamicData = {
+        city: cityName,
+        lat: lat,
+        lon: lon,
+        temperature: Math.round(15 + Math.random() * 20), // Random temp between 15-35°C
+        precipitation: Math.round(Math.random() * 100), // Random precipitation 0-100%
+        gemini: `Pronóstico para ${cityName}: condiciones variables con tendencia a estabilizarse.`
+    };
+    
+    showGlassPanel(dynamicData);
 }
 
-function resetView() {
-    // --- CAMBIO CLAVE AQUÍ ---
-    // 1. La posición de reinicio ahora es 5 (antes era 15).
+window.addEventListener('resize', onWindowResize);
+
+// ---------------------------
+// Animación tipo ruleta (API)
+// ---------------------------
+// Calcula el ángulo azimutal (XZ) de un vector
+function getAzimuthXZ(v){
+    return Math.atan2(v.x, v.z);
+}
+
+// Aplica rotación Y a un vector (solo XZ)
+function rotateXZByYaw(vec, yaw){
+    const c = Math.cos(yaw), s = Math.sin(yaw);
+    return new THREE.Vector3(
+        vec.x * c + vec.z * s,
+        vec.y,
+        -vec.x * s + vec.z * c
+    );
+}
+
+// Normaliza ángulo a [-PI, PI]
+function normalizeAngleSigned(a){
+    let ang = (a + Math.PI) % (2*Math.PI);
+    if(ang < 0) ang += 2*Math.PI;
+    return ang - Math.PI;
+}
+
+// Convierte a [0, 2PI)
+function normalizeAnglePositive(a){
+    let ang = a % (2*Math.PI);
+    if(ang < 0) ang += 2*Math.PI;
+    return ang;
+}
+
+// Inicia la animación de ruleta hasta una lat/lon objetivo
+// options: { durationMs=7000, extraTurns=6, direction='auto'|'cw'|'ccw' }
+function startRouletteAnimation(targetLat, targetLon, options={}){
+    const durationMs = options.durationMs ?? 7000;
+    const extraTurns = Math.max(0, options.extraTurns ?? 6);
+    const direction = options.direction ?? 'auto'; // 'cw' => +Y, 'ccw' => -Y
+
+    // Cancela/resolve una animación previa si existiese
+    if(rouletteState && rouletteState.active && rouletteState.resolve){
+        const prevResolve = rouletteState.resolve; rouletteState.active = false; rouletteState.resolve = null; prevResolve();
+    }
+
+    // Punto objetivo en el globo (sin rotación aplicada)
+    const targetPointLocal = latLonToVector3(targetLat, targetLon, 1);
+
+    // Azimut deseado: usa la orientación real de la cámara
+    const viewDir = new THREE.Vector3().copy(camera.position).normalize().multiplyScalar(-1); // hacia -camera.position
+    const desiredAzimuth = getAzimuthXZ(viewDir);
+
+    // Azimut actual del punto objetivo en mundo con la rotación actual del globo
+    const currentYaw = globe.rotation.y;
+    const targetPointWorld = rotateXZByYaw(targetPointLocal, currentYaw);
+    const currentAzimuthWorld = getAzimuthXZ(targetPointWorld);
+
+    // Diferencia mínima necesaria para alinear el punto con el azimut deseado
+    const deltaToAlign = normalizeAngleSigned(desiredAzimuth - currentAzimuthWorld);
+
+    // Decide el signo/dirección de giro y suma vueltas extra para efecto "ruleta"
+    // SIEMPRE gira hacia la derecha (sentido horario) sin importar la distancia
+    let sign = 1; // Siempre positivo = siempre hacia la derecha
+
+    const fullTurns = extraTurns * 2 * Math.PI * sign;
+    const extraSpin = fullTurns; // corrección dinámica se aplica en cada frame
+
+    // Prepara estado
+    let extResolve;
+    const promise = new Promise((resolve)=>{ extResolve = resolve; });
+    rouletteState = {
+        active:true,
+        startTime: performance.now(),
+        durationMs,
+        initialYaw: currentYaw,
+        extraSpin,
+        targetLat,
+        targetLon,
+        targetLocal: targetPointLocal,
+        resolve: extResolve
+    };
+
+    return promise;
+}
+
+// Final offset testing based on the complete pattern
+window.findPreciseOffset = function() {
+    console.log("=== PRECISE OFFSET TESTING ===");
+    console.log("Pattern observed:");
+    console.log("- London (UK) → appearing in Russia");
+    console.log("- Tokyo (Japan) → appearing in Mexico");
+    console.log("This suggests ~90-120° rotation needed");
+    
+    // Test more precise offsets around the likely range
+    const offsets = [90, 100, 110, 120, 130, -90, -100, -110, -120, -130];
+    let currentIndex = 0;
+    
+    function testNext() {
+        if (currentIndex >= offsets.length) {
+            console.log("All precise offsets tested. Which one shows London in UK and Tokyo in Japan?");
+            return;
+        }
+        
+        const offset = offsets[currentIndex];
+        console.log(`\n=== Testing precise offset: ${offset}° ===`);
+        testTextureOffset(offset, "londres");
+        
+        currentIndex++;
+        setTimeout(testNext, 4000); // Wait 4 seconds between tests
+    }
+    
+    testNext();
+};
+
+// Quick test function to find the right offset
+window.findCorrectOffset = function() {
+    console.log("Testing different offsets for London...");
+    console.log("London should appear in the UK (Europe), not in the US");
+    
+    const offsets = [0, 90, -90, 180, -180, 270, -270];
+    let currentIndex = 0;
+    
+    function testNext() {
+        if (currentIndex >= offsets.length) {
+            console.log("All offsets tested. Which one showed London in the correct location?");
+            return;
+        }
+        
+        const offset = offsets[currentIndex];
+        console.log(`\n=== Testing offset: ${offset}° ===`);
+        testTextureOffset(offset, "londres");
+        
+        currentIndex++;
+        setTimeout(testNext, 3000); // Wait 3 seconds between tests
+    }
+    
+    testNext();
+};
+
+// Quick manual tests for common offsets
+window.quickTestOffsets = function() {
+    console.log("=== QUICK MANUAL TESTS ===");
+    console.log("Try these common offsets manually:");
+    console.log("testTextureOffset(0, 'mexico')     - No offset");
+    console.log("testTextureOffset(90, 'mexico')    - 90° clockwise");
+    console.log("testTextureOffset(180, 'mexico')   - 180° clockwise");
+    console.log("testTextureOffset(270, 'mexico')   - 270° clockwise");
+    console.log("testTextureOffset(-90, 'mexico')   - 90° counter-clockwise");
+    console.log("testTextureOffset(-180, 'mexico')  - 180° counter-clockwise");
+    console.log("testTextureOffset(-270, 'mexico')  - 270° counter-clockwise");
+    console.log("\nMexico should appear in North America (left side of texture)");
+};
+
+// Systematic testing of all possible offsets
+window.testAllOffsets = function() {
+    console.log("=== SYSTEMATIC OFFSET TESTING ===");
+    console.log("Testing every 30° from 0° to 360° to find the correct offset");
+    console.log("Mexico should appear in North America, not Africa");
+    
+    const offsets = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+    let currentIndex = 0;
+    
+    function testNext() {
+        if (currentIndex >= offsets.length) {
+            console.log("All systematic offsets tested. Which one shows Mexico in North America?");
+            return;
+        }
+        
+        const offset = offsets[currentIndex];
+        console.log(`\n=== Testing systematic offset: ${offset}° ===`);
+        testTextureOffset(offset, "mexico");
+        
+        currentIndex++;
+        setTimeout(testNext, 5000); // Wait 5 seconds between tests
+    }
+    
+    testNext();
+};
+
+// Quick test for the most likely offset based on pattern
+window.testMostLikelyOffset = function() {
+    console.log("Testing the most likely offset: 140°");
+    console.log("This should fix:");
+    console.log("- Mexico: Africa → North America");
+    console.log("- Tokyo: Mexico → Japan"); 
+    console.log("- London: Russia → UK");
+    
+    testBothCities(140);
+};
+
+// Final offset testing based on the complete pattern
+window.findFinalOffset = function() {
+    console.log("=== FINAL OFFSET TESTING ===");
+    console.log("Complete pattern observed:");
+    console.log("- Mexico (North America) → appearing in Africa");
+    console.log("- Tokyo (Japan) → appearing in Mexico");
+    console.log("- London (UK) → appearing in Russia");
+    console.log("This suggests ~120-150° rotation needed");
+    
+    // Test the most likely offsets based on the pattern
+    const offsets = [120, 130, 140, 150, 160, -120, -130, -140, -150, -160];
+    let currentIndex = 0;
+    
+    function testNext() {
+        if (currentIndex >= offsets.length) {
+            console.log("All final offsets tested. Which one shows all cities in correct locations?");
+            return;
+        }
+        
+        const offset = offsets[currentIndex];
+        console.log(`\n=== Testing final offset: ${offset}° ===`);
+        testTextureOffset(offset, "mexico");
+        
+        currentIndex++;
+        setTimeout(testNext, 4000); // Wait 4 seconds between tests
+    }
+    
+    testNext();
+};
+
+// Test specific texture offset with a city
+window.testTextureOffset = function(offsetDeg, cityName = "londres") {
+    const coords = cityCoordinates[cityName.toLowerCase()];
+    if (!coords) {
+        console.log(`City ${cityName} not found`);
+        return;
+    }
+    
+    console.log(`Testing texture offset ${offsetDeg}° with ${cityName}`);
+    
+    // Temporarily set the offset
+    const originalOffset = earthYawOffsetDeg;
+    earthYawOffsetDeg = offsetDeg;
+    
+    // Reset globe rotation
+    globe.rotation.y = 0;
+    
+    // Navigate to the city
+    zoomToLocation(coords.lat, coords.lon, cityName);
+    forecastRequest = {city: cityName, query: cityName};
+    mainUI.style.opacity = '0';
+    
+    console.log(`Applied offset ${offsetDeg}°. Check if ${cityName} appears in the correct location on your texture.`);
+    console.log(`To revert: adjustTextureOffset(${originalOffset})`);
+};
+
+// Test both London and Tokyo to verify the offset works for both
+window.testBothCities = function(offsetDeg) {
+    console.log(`Testing offset ${offsetDeg}° with both London and Tokyo`);
+    
+    const originalOffset = earthYawOffsetDeg;
+    earthYawOffsetDeg = offsetDeg;
+    globe.rotation.y = 0;
+    
+    // Test London first
+    console.log("Testing London...");
+    testTextureOffset(offsetDeg, "londres");
+    
+    setTimeout(() => {
+        console.log("Testing Tokyo...");
+        testTextureOffset(offsetDeg, "tokio");
+        console.log(`\nCheck both cities: London should be in UK, Tokyo should be in Japan`);
+        console.log(`If both are correct, run: adjustTextureOffset(${offsetDeg})`);
+    }, 3000);
+};
+
+// Comprehensive debugging function
+window.debugCoordinates = function(cityName) {
+    const coords = cityCoordinates[cityName.toLowerCase()];
+    if (!coords) {
+        console.log(`City ${cityName} not found`);
+        return;
+    }
+    
+    console.log(`=== DEBUGGING ${cityName.toUpperCase()} ===`);
+    console.log(`Original coordinates: lat=${coords.lat}, lon=${coords.lon}`);
+    
+    // Test different texture offsets
+    const offsets = [0, -90, -180, -270, 90, 180, 270];
+    
+    offsets.forEach(offset => {
+        const testOffset = offset;
+        const latRad = coords.lat * Math.PI / 180;
+        const lonRad = (coords.lon + testOffset) * Math.PI / 180;
+        const cosLat = Math.cos(latRad);
+        const testVector = new THREE.Vector3(
+            Math.cos(latRad) * Math.sin(lonRad),
+            Math.sin(latRad),
+            Math.cos(latRad) * Math.cos(lonRad)
+        );
+        
+        console.log(`Offset ${testOffset}°: Vector(${testVector.x.toFixed(3)}, ${testVector.y.toFixed(3)}, ${testVector.z.toFixed(3)})`);
+    });
+    
+    console.log(`Current globe rotation: ${globe.rotation.y.toFixed(3)} radians (${(globe.rotation.y * 180 / Math.PI).toFixed(1)}°)`);
+    console.log(`Current texture offset: ${earthYawOffsetDeg}°`);
+};
+
+// Function to reset globe rotation for testing
+window.resetGlobeRotation = function() {
+    globe.rotation.y = 0;
+    console.log('Globe rotation reset to 0');
+};
+
+// Función para probar ajustes específicos manualmente
+window.testFineOffset = function(offsetDeg) {
+    console.log(`Probando ajuste fino ${offsetDeg}°`);
+    
+    // Aplicar el offset
+    earthYawOffsetDeg = offsetDeg;
+    
+    // Reset globo
+    globe.rotation.y = 0;
     targetPosition.set(0, 0, 5);
-    mainUI.style.opacity = '1';
-    forecastResult.classList.add('hidden');
-    forecastRequest = null;
-}
+    
+    // Probar con México
+    console.log("Probando México...");
+    zoomToLocation(19.4326, -99.1332, "México");
+    forecastRequest = {city: "mexico", query: "mexico"};
+    mainUI.style.opacity = '0';
+    
+    console.log(`Ajuste fino ${offsetDeg}° aplicado. ¿México está en el lugar correcto?`);
+};
 
-function displayForecast(city, query){
-    const forecastLocation = document.getElementById('forecast-location');
-    const forecastDate = document.getElementById('forecast-date');
-    const forecastDetails = document.getElementById('forecast-details');
-    const timeMatch = query.match(/en (\d+ \w+)/);
-    const dateText = timeMatch ? `Para ${timeMatch[1]}` : 'En un futuro cercano';
-    forecastLocation.textContent = city.charAt(0).toUpperCase()+city.slice(1);
-    forecastDate.textContent=dateText;
-    const temp=(Math.random()*25+5).toFixed(1);
-    const precipitation=(Math.random()*100).toFixed(0);
-    const wind=(Math.random()*30+5).toFixed(1);
-    const summaries=["Se esperan condiciones climáticas estables.","Posibilidad de eventos meteorológicos anómalos.","Tendencia a temperaturas por encima de la media histórica.","Periodos de sequía alternados con lluvias intensas."];
-    const summary = summaries[Math.floor(Math.random()*summaries.length)];
-    forecastDetails.innerHTML=`
-        <div class="space-y-4 text-left">
-            <p class="text-lg"><strong>Temperatura Promedio:</strong> ${temp}°C</p>
-            <p class="text-lg"><strong>Probabilidad de Precipitación:</strong> ${precipitation}%</p>
-            <p class="text-lg"><strong>Viento Promedio:</strong> ${wind} km/h</p>
-            <p class="text-lg mt-4"><strong>Resumen:</strong> ${summary}</p>
-        </div>
-    `;
-    forecastResult.classList.remove('hidden');
-}
+// Función para ajustes finos del offset
+window.fineTuneOffset = function() {
+    console.log('=== AJUSTE FINO DEL OFFSET ===');
+    console.log('Offset actual: -263°');
+    console.log('Problema: Aparece un poco al oeste');
+    console.log('Probando ajustes finos...');
+    
+    // Si está al oeste, necesitamos valores más negativos (más hacia el este)
+    const fineAdjustments = [-265, -266, -267, -268, -270, -275];
+    let currentIndex = 0;
+    
+    function testNext() {
+        if (currentIndex >= fineAdjustments.length) {
+            console.log('Todos los ajustes finos probados. ¿Cuál está en el lugar correcto?');
+            return;
+        }
+        
+        const offset = fineAdjustments[currentIndex];
+        console.log(`\n=== Probando ajuste fino: ${offset}° ===`);
+        
+        // Aplicar el offset
+        earthYawOffsetDeg = offset;
+        
+        // Reset globo
+        globe.rotation.y = 0;
+        targetPosition.set(0, 0, 5);
+        
+        // Probar con México
+        console.log("Probando México...");
+        zoomToLocation(19.4326, -99.1332, "México");
+        forecastRequest = {city: "mexico", query: "mexico"};
+        mainUI.style.opacity = '0';
+        
+        currentIndex++;
+        setTimeout(testNext, 4000); // Esperar 4 segundos entre pruebas
+    }
+    
+    testNext();
+};
 
-window.addEventListener('resize',onWindowResize);
+// Función para probar un offset específico manualmente
+window.testOffset = function(offsetDeg) {
+    console.log(`Probando offset ${offsetDeg}°`);
+    
+    // Aplicar el offset
+    earthYawOffsetDeg = offsetDeg;
+    
+    // Reset globo
+    globe.rotation.y = 0;
+    targetPosition.set(0, 0, 5);
+    
+    // Probar con México
+    console.log("Probando México...");
+    zoomToLocation(19.4326, -99.1332, "México");
+    forecastRequest = {city: "mexico", query: "mexico"};
+    mainUI.style.opacity = '0';
+    
+    console.log(`Offset ${offsetDeg}° aplicado. ¿México aparece en Norteamérica?`);
+};
+
+// Función para ajustar el nivel de zoom
+window.setZoomLevel = function(distance) {
+    console.log(`Configurando distancia de zoom a ${distance}`);
+    
+    // Actualizar la función zoomToLocation para usar la nueva distancia
+    window.zoomToLocation = function(lat, lon, cityName){
+        const target3D = latLonToVector3(lat, lon, 1);
+        
+        // Aplica la rotación actual del globo al punto objetivo
+        const rotatedTarget = rotateXZByYaw(target3D, globe.rotation.y);
+        
+        // Posiciona la cámara relativa al punto objetivo rotado con distancia personalizada
+        const cameraOffset = rotatedTarget.clone().normalize().multiplyScalar(distance);
+        targetPosition.copy(cameraOffset);
+        
+        // Create dynamic data based on the searched city
+        const dynamicData = {
+            city: cityName,
+            lat: lat,
+            lon: lon,
+            temperature: Math.round(15 + Math.random() * 20), // Random temp between 15-35°C
+            precipitation: Math.round(Math.random() * 100), // Random precipitation 0-100%
+            gemini: `Pronóstico para ${cityName}: condiciones variables con tendencia a estabilizarse.`
+        };
+        
+        showGlassPanel(dynamicData);
+    };
+    
+    console.log(`Zoom configurado a distancia ${distance}. Prueba con una ciudad.`);
+};
+
+// Función para alternar entre modo día solamente y modo normal
+window.toggleDayOnlyMode = function() {
+    console.log('Modo día solamente activado - siempre usa textura de día');
+    console.log('El globo ahora siempre se verá iluminado sin efectos de noche');
+    console.log('Para volver al modo normal, recarga la página');
+};
+
+// Función para probar diferentes niveles de zoom
+window.testZoomLevels = function() {
+    console.log('=== NIVELES DE ZOOM DISPONIBLES ===');
+    console.log('Distancias recomendadas:');
+    console.log('- setZoomLevel(2.0) - Muy cerca (zoom máximo)');
+    console.log('- setZoomLevel(2.5) - Cerca');
+    console.log('- setZoomLevel(3.0) - Medio');
+    console.log('- setZoomLevel(3.5) - Lejos (actual)');
+    console.log('- setZoomLevel(4.0) - Muy lejos');
+    console.log('- setZoomLevel(5.0) - Vista general');
+    console.log('');
+    console.log('Prueba con: setZoomLevel(4.0)');
+};
+
+// Función para encontrar el offset correcto automáticamente
+window.findCorrectOffset = function() {
+    console.log("=== BUSCANDO OFFSET CORRECTO ===");
+    console.log("Problema actual:");
+    console.log("- Tokyo aparece en América");
+    console.log("- México aparece en África");
+    console.log("Probando diferentes offsets...");
+    
+    const testOffsets = [0, 90, 180, 270, -90, -180, -270];
+    let currentIndex = 0;
+    
+    function testNext() {
+        if (currentIndex >= testOffsets.length) {
+            console.log("Todos los offsets probados. ¿Cuál mostró las coordenadas correctas?");
+            return;
+        }
+        
+        const offset = testOffsets[currentIndex];
+        console.log(`\n=== Probando offset: ${offset}° ===`);
+        
+        // Aplicar el offset
+        earthYawOffsetDeg = offset;
+        
+        // Reset globo
+        globe.rotation.y = 0;
+        targetPosition.set(0, 0, 5);
+        
+        // Probar con México
+        console.log("Probando México...");
+        zoomToLocation(19.4326, -99.1332, "México");
+        forecastRequest = {city: "mexico", query: "mexico"};
+        mainUI.style.opacity = '0';
+        
+        currentIndex++;
+        setTimeout(testNext, 5000); // Esperar 5 segundos entre pruebas
+    }
+    
+    testNext();
+};
+
+// Función simple para probar coordenadas
+window.testSimpleCoordinates = function(cityName) {
+    const coords = cityCoordinates[cityName.toLowerCase()];
+    if (!coords) {
+        console.log(`City ${cityName} not found`);
+        return;
+    }
+    
+    console.log(`Testing simple coordinates for ${cityName}:`, coords);
+    
+    // Reset everything
+    globe.rotation.y = 0;
+    targetPosition.set(0, 0, 5);
+    
+    // Navigate to coordinates
+    zoomToLocation(coords.lat, coords.lon, cityName);
+    forecastRequest = {city: cityName, query: cityName};
+    mainUI.style.opacity = '0';
+    
+    console.log(`Simple test for ${cityName}. Check coordinates.`);
+};
+
+// Función para probar coordenadas sin animación de ruleta
+window.testCoordinatesDirect = function(cityName) {
+    const coords = cityCoordinates[cityName.toLowerCase()];
+    if (!coords) {
+        console.log(`City ${cityName} not found`);
+        return;
+    }
+    
+    console.log(`Testing coordinates for ${cityName}:`, coords);
+    
+    // Reset globe rotation to 0
+    globe.rotation.y = 0;
+    
+    // Navigate directly to coordinates
+    zoomToLocation(coords.lat, coords.lon, cityName);
+    forecastRequest = {city: cityName, query: cityName};
+    mainUI.style.opacity = '0';
+    
+    console.log(`Direct navigation to ${cityName}. Check if coordinates are correct.`);
+};
+
+// Test function to navigate directly to coordinates without roulette animation
+window.testDirectNavigation = function(cityName) {
+    const coords = cityCoordinates[cityName.toLowerCase()];
+    if (coords) {
+        console.log(`Testing direct navigation to ${cityName}:`, coords);
+        zoomToLocation(coords.lat, coords.lon, cityName);
+        forecastRequest = {city: cityName, query: cityName};
+        mainUI.style.opacity = '0';
+    } else {
+        console.log(`City ${cityName} not found in coordinates`);
+    }
+};
+
+// Helper function to test texture alignment - call from browser console
+// Usage: adjustTextureOffset(90) or adjustTextureOffset(-23.5)
+window.adjustTextureOffset = function(offsetDeg) {
+    earthYawOffsetDeg = offsetDeg;
+    console.log(`Texture offset set to ${offsetDeg} degrees`);
+    console.log('Test with a city to see if coordinates align better with texture');
+};
+
+// Helper function to get current offset
+window.getTextureOffset = function() {
+    console.log(`Current texture offset: ${earthYawOffsetDeg} degrees`);
+    return earthYawOffsetDeg;
+};
+
+// Expone la API global sin tocar UI/cámara
+window.startRouletteAnimation = startRouletteAnimation;
 </script>
 </body>
 </html>

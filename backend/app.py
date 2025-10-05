@@ -164,6 +164,6 @@ def get_weather_prediction():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Run the app on port 3000, accessible from any IA
+    # Run the app on port 5000, accessible from any IA
     app.run(host='0.0.0.0', port=5000)
     
