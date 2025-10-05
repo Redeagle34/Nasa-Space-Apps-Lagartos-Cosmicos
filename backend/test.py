@@ -1,16 +1,116 @@
 import os
 import re
 import json
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import google.generativeai as genai
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+
+import logging
+
+load_dotenv()
+OPEN_WEATHER_API_KEY = "cddf144a12cfa41a91bc0ca9cdd66c37"
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def convert_date_to_timestamp(date_str: str) -> int:
+    """
+    Convert a date string in dd/mm/yyyy format to Unix timestamp (UTC).
+    
+    Args:
+        date_str (str): Date string in format dd/mm/yyyy
+        
+    Returns:
+        int: Unix timestamp in UTC
+    """
+    try:
+        # Parse the date string to datetime object
+        date_obj = datetime.strptime(date_str, "%d/%m/%Y")
+        
+        # Convert to UTC timestamp (Unix time)
+        timestamp = int(date_obj.replace(tzinfo=timezone.utc).timestamp())
+        
+        logger.info(f"✅ Converted date {date_str} to timestamp {timestamp}")
+        return timestamp
+        
+    except ValueError as e:
+        logger.error(f"❌ Error converting date: {str(e)}")
+        return None
+
+def get_weather_data(lat: float, lon: float, dt: str) -> dict:
+    """
+    Fetch weather data from OpenWeather API for given coordinates.
+    
+    Args:
+        lat (float): Latitude
+        lon (float): Longitude
+        
+    Returns:
+        dict: Weather data or error message
+    """
+    try:
+        # Construct API URL
+        base_url = "https://api.openweathermap.org/data/2.5/weather"
 
 
+        # Parameters for the API call
+        params = {
+            'lat': lat,
+            'lon': lon,
+            'dt': convert_date_to_timestamp(dt),
+            'exclude': 'minutely',  # Exclude unnecessary data
+            'units': 'metric',  # Use metric units
+            'appid': OPEN_WEATHER_API_KEY
+        }
+        
+        logger.info(f"🌍 Fetching weather data for coordinates: {lat}, {lon}")
+        
+        # Make API request
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()  # Raise exception for bad status codes
+        
+        weather_data = response.json()
+        
+        # Extract relevant data for ML model
+        processed_data = {
+            'current': {
+                'temp': weather_data.get('current', {}).get('temp'),
+                'humidity': weather_data.get('current', {}).get('humidity'),
+                'precipitation': weather_data.get('current', {}).get('rain', {}).get('1h', 0)
+            },
+            'daily': []
+        }
+        
+        # Process daily data for the last 7 days
+        for day in weather_data.get('daily', [])[:7]:
+            processed_data['daily'].append({
+                'date': datetime.fromtimestamp(day['dt']).strftime('%Y-%m-%d'),
+                'temp': {
+                    'day': day.get('temp', {}).get('day'),
+                    'min': day.get('temp', {}).get('min'),
+                    'max': day.get('temp', {}).get('max')
+                },
+                'humidity': day.get('humidity'),
+                'precipitation': day.get('rain', 0),
+                'wind_speed': day.get('wind_speed')
+            })
+            
+        logger.info("✅ Weather data fetched successfully")
+        return processed_data
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Error fetching weather data: {str(e)}")
+        return {
+            'error': f"Error fetching weather data: {str(e)}",
+            'status': 'error'
+        }
 
 genai.configure(api_key="AIzaSyBJABA-YfpktIoijmG4OGgBKJd0frglAXI")
 gemini_model = genai.GenerativeModel('gemini-2.5-pro')
+
 
 def clean_and_parse_json(text):
     """Extracts and parses JSON from Gemini's response, handling markdown formatting."""
@@ -107,10 +207,13 @@ def format_prediction_with_gemini(prediction_data):
             "table": f"| Metric | Value |\n|--------|-------|\n| Temperature | {prediction_data.get('predicted_temp_c', 'N/A')}°C |\n| Humidity | {prediction_data.get('predicted_humidity_percent', 'N/A')}% |"
         }
     
-parse_prompt_with_gemini("Cual es la temperatura como")
+    
+parsed_result = parse_prompt_with_gemini("Cual es la temperatura en Monterrey México mañana")
+print(get_weather_data(round(float(parsed_result['latitude']),2), round(float(parsed_result['longitude']),2), parsed_result['time']))
 
 #parse_prompt_with_gemini("Dame la temperatura de San Pedro dentro de un mes")
-format_prediction_with_gemini({'Peticion original':"Quiero festejar una boda el siguiente mes en Monterrey por la tarde, debería hacerlo?", 'Tiempo':"04/11/2025", 'Temperatura':20, 'Precipitacion':2, 'Viento':3, 'Humedad':10, 'Cobertura de nubes':2, 'Probabilidad de tormenta electrica':0})
+#format_prediction_with_gemini({'Peticion original':"Quiero festejar una boda el siguiente mes en Monterrey por la tarde, debería hacerlo?", 'Tiempo':"04/11/2025", 'Temperatura':20, 'Precipitacion':2, 'Viento':3, 'Humedad':10, 'Cobertura de nubes':2, 'Probabilidad de tormenta electrica':0})
+
 
 
 #https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/[location]/[date1]/[date2]?key=YOUR_API_KEY

@@ -63,5 +63,3 @@ Constraints:
 Standards:
 - Commits pequeños y atómicos; cada PR con título y descripción.
 - Siempre incluir un ejemplo curl o Postman collection.
-
-oye pero me gustaría poder visualizar la "respuesta" que gemini me está dando después de haberle entregado los datos para saber más que nada que "información" se le estaría mandando al frontend de vuelta
