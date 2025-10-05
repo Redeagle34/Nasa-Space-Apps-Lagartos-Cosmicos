@@ -4,9 +4,9 @@
     <script type="importmap">
     {
         "imports": {
-            "three": "../build/three.webgpu.js",
+            "three": "/build/three.webgpu.js",
             "three/webgpu": "../build/three.webgpu.js",
-            "three/tsl": "../build/three.tsl.js",
+            "three/tsl": "/build/three.tsl.js",
             "three/addons/": "./jsm/"
         }
     }
@@ -71,173 +71,116 @@
     </div>
 
     <script type="module">
-        // Importar Three.js desde un CDN estable
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
+        import * as THREE from 'three';
+        import { step, normalWorldGeometry, output, texture, vec3, vec4, normalize, positionWorld, bumpMap, cameraPosition, color, uniform, mix, uv, max } from 'three/tsl';
 
-        // --- Configuración básica de la escena ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ 
-            canvas: document.querySelector('#bg-canvas'),
-            antialias: true 
-        });
+        // --- Declaración de variables globales ---
+        let camera, scene, renderer, globe, clock;
 
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.position.setZ(15);
-
-        scene.background = new THREE.Color(0x000011);
-
-        // --- Creación del Planeta Tierra ---
-        const earthGeometry = new THREE.SphereGeometry(5, 64, 64);
-        const textureLoader = new THREE.TextureLoader();
-        const earthTexture = textureLoader.load('https://threejs.org/examples/textures/land_ocean_ice_cloud_2048.jpg');
-        const earthMaterial = new THREE.MeshBasicMaterial({ map: earthTexture });
-        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-        scene.add(earth);
-        
-        // --- Creación del fondo de estrellas ---
-        const starGeometry = new THREE.BufferGeometry();
-        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
-        const starVertices = [];
-        for (let i = 0; i < 10000; i++) {
-            const x = (Math.random() - 0.5) * 2000;
-            const y = (Math.random() - 0.5) * 2000;
-            const z = (Math.random() - 0.5) * 2000;
-            const dist = Math.sqrt(x*x + y*y + z*z);
-            if (dist > 300) starVertices.push(x, y, z); // Solo estrellas lejanas
-        }
-        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-        const stars = new THREE.Points(starGeometry, starMaterial);
-        scene.add(stars);
-
-        // --- Datos de ciudades para simulación de zoom ---
-        const cityCoordinates = {
-            'tokio': { lat: 35.6895, lon: 139.6917 },
-            'paris': { lat: 48.8566, lon: 2.3522 },
-            'londres': { lat: 51.5074, lon: -0.1278 },
-            'new york': { lat: 40.7128, lon: -74.0060 },
-            'sydney': { lat: -33.8688, lon: 151.2093 },
-            'el cairo': { lat: 30.0444, lon: 31.2357 },
-            'rio de janeiro': { lat: -22.9068, lon: -43.1729 },
-            'mexico': { lat: 19.4326, lon: -99.1332 }
-        };
-
-        // --- Animación y Controles ---
-        let targetRotation = { x: 0, y: 0.001 };
-        let targetPosition = new THREE.Vector3(0, 0, 15);
+        // --- Variables de la UI que conservamos ---
+        let targetPosition = new THREE.Vector3(0, 0, 5); // Posición inicial ajustada para el nuevo globo
         let forecastRequest = null;
 
-        function animate() {
-            requestAnimationFrame(animate);
+        // --- Lógica principal ---
+        init();
 
-            earth.rotation.y += targetRotation.y;
-            earth.rotation.x += targetRotation.x;
-            
-            camera.position.lerp(targetPosition, 0.05);
-            camera.lookAt(0, 0, 0);
+        function init() {
+            clock = new THREE.Clock();
 
-            if (forecastRequest && camera.position.distanceTo(targetPosition) < 0.1) {
-                displayForecast(forecastRequest.city, forecastRequest.query);
-                forecastRequest = null;
-            }
+            camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 5); // Posición inicial más cercana
 
-            renderer.render(scene, camera);
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000011);
+
+            // Sol (Luz direccional)
+            const sun = new THREE.DirectionalLight('#ffffff', 2.5);
+            sun.position.set(0, 0, 3);
+            scene.add(sun);
+
+            // Texturas
+            const textureLoader = new THREE.TextureLoader();
+            const dayTexture = textureLoader.load('./textures/planets/earth_day_4096.jpg');
+            dayTexture.colorSpace = THREE.SRGBColorSpace;
+            dayTexture.anisotropy = 8;
+
+            const nightTexture = textureLoader.load('./textures/planets/earth_night_4096.jpg');
+            nightTexture.colorSpace = THREE.SRGBColorSpace;
+            nightTexture.anisotropy = 8;
+
+            const bumpRoughnessCloudsTexture = textureLoader.load('./textures/planets/earth_bump_roughness_clouds_4096.jpg');
+            bumpRoughnessCloudsTexture.anisotropy = 8;
+
+            // --- Creación del Globo Terráqueo (Lógica de Shaders de WebGPU) ---
+            const sphereGeometry = new THREE.SphereGeometry(1, 64, 64); // Radio de 1
+
+            // Material del globo
+            const globeMaterial = new THREE.MeshStandardNodeMaterial();
+            const cloudsStrength = texture(bumpRoughnessCloudsTexture, uv()).b.smoothstep(0.2, 1);
+            globeMaterial.colorNode = mix(texture(dayTexture), vec3(1), cloudsStrength.mul(2));
+            const roughness = max(texture(bumpRoughnessCloudsTexture).g, step(0.01, cloudsStrength));
+            globeMaterial.roughnessNode = roughness.remap(0, 1, uniform(0.25), uniform(0.35));
+
+            const night = texture(nightTexture);
+            const sunOrientation = normalWorldGeometry.dot(normalize(sun.position)).toVar();
+            const dayStrength = sunOrientation.smoothstep(-0.25, 0.5);
+
+            const viewDirection = positionWorld.sub(cameraPosition).normalize();
+            const fresnel = viewDirection.dot(normalWorldGeometry).abs().oneMinus().toVar();
+
+            const atmosphereDayColor = uniform(color('#4db2ff'));
+            const atmosphereTwilightColor = uniform(color('#bc490b'));
+            const atmosphereColor = mix(atmosphereTwilightColor, atmosphereDayColor, sunOrientation.smoothstep(-0.25, 0.75));
+
+            const atmosphereDayStrength = sunOrientation.smoothstep(-0.5, 1);
+            const atmosphereMix = atmosphereDayStrength.mul(fresnel.pow(2)).clamp(0, 1);
+
+            let finalOutput = mix(night.rgb, globeMaterial.colorNode, dayStrength);
+            finalOutput = mix(finalOutput, atmosphereColor, atmosphereMix);
+            globeMaterial.outputNode = vec4(finalOutput, output.a);
+
+            const bumpElevation = max(texture(bumpRoughnessCloudsTexture).r, cloudsStrength);
+            globeMaterial.normalNode = bumpMap(bumpElevation);
+
+            globe = new THREE.Mesh(sphereGeometry, globeMaterial);
+            scene.add(globe);
+
+            // Material de la atmósfera
+            const atmosphereMaterial = new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide, transparent: true });
+            let alpha = fresnel.remap(0.73, 1, 1, 0).pow(3);
+            alpha = alpha.mul(sunOrientation.smoothstep(-0.5, 1));
+            atmosphereMaterial.outputNode = vec4(atmosphereColor, alpha);
+
+            const atmosphere = new THREE.Mesh(sphereGeometry, atmosphereMaterial);
+            atmosphere.scale.setScalar(1.04);
+            scene.add(atmosphere);
+
+            // Renderer
+            renderer = new THREE.WebGPURenderer({
+                canvas: document.querySelector('#bg-canvas'), // Usamos tu canvas existente
+                antialias: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setAnimationLoop(animate); // Usamos el bucle de animación del renderer
         }
-        animate();
-        
-        // --- Lógica de la Interfaz ---
-        const form = document.getElementById('location-form');
-        const input = document.getElementById('location-input');
-        const mainUI = document.getElementById('main-ui');
-        const forecastResult = document.getElementById('forecast-result');
-        const backButton = document.getElementById('back-button');
 
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const query = input.value.toLowerCase().trim();
-            if (!query) return;
-
-            const foundCity = Object.keys(cityCoordinates).find(city => query.includes(city));
-
-            if (foundCity) {
-                const { lat, lon } = cityCoordinates[foundCity];
-                zoomToLocation(lat, lon);
-                forecastRequest = { city: foundCity, query: query };
-            } else {
-                targetPosition.set(0, 0, 8);
-                forecastRequest = { city: "un lugar desconocido", query: query };
-            }
-
-            mainUI.style.opacity = '0';
-        });
-        
-        backButton.addEventListener('click', () => {
-            resetView();
-        });
-
-        function latLonToVector3(lat, lon, radius) {
-            const phi = (90 - lat) * (Math.PI / 180);
-            const theta = (lon + 180) * (Math.PI / 180);
-
-            const x = -(radius * Math.sin(phi) * Math.cos(theta));
-            const y = radius * Math.cos(phi);
-            const z = radius * Math.sin(phi) * Math.sin(theta);
-
-            return new THREE.Vector3(x, y, z);
-        }
-
-        function zoomToLocation(lat, lon) {
-            const radius = 5;
-            const target3D = latLonToVector3(lat, lon, radius); 
-            const cameraOffset = target3D.normalize().multiplyScalar(10);
-            targetPosition.copy(cameraOffset);
-        }
-
-        function resetView() {
-            targetPosition.set(0, 0, 15);
-            mainUI.style.opacity = '1';
-            forecastResult.classList.add('hidden');
-            forecastRequest = null;
-        }
-        
-        // --- Simulación de API de Pronóstico ---
-        function displayForecast(city, query) {
-            const forecastLocation = document.getElementById('forecast-location');
-            const forecastDate = document.getElementById('forecast-date');
-            const forecastDetails = document.getElementById('forecast-details');
-            
-            const timeMatch = query.match(/en (\d+ \w+)/);
-            const dateText = timeMatch ? `Para ${timeMatch[1]}` : 'En un futuro cercano';
-
-            forecastLocation.textContent = city.charAt(0).toUpperCase() + city.slice(1);
-            forecastDate.textContent = dateText;
-            
-            const temp = (Math.random() * 25 + 5).toFixed(1);
-            const precipitation = (Math.random() * 100).toFixed(0);
-            const wind = (Math.random() * 30 + 5).toFixed(1);
-            const summaries = ["Se esperan condiciones climáticas estables.", "Posibilidad de eventos meteorológicos anómalos.", "Tendencia a temperaturas por encima de la media histórica.", "Periodos de sequía alternados con lluvias intensas."];
-            const summary = summaries[Math.floor(Math.random() * summaries.length)];
-
-            forecastDetails.innerHTML = `
-                <div class="space-y-4 text-left">
-                    <p class="text-lg"><strong>Temperatura Promedio:</strong> ${temp}°C</p>
-                    <p class="text-lg"><strong>Probabilidad de Precipitación:</strong> ${precipitation}%</p>
-                    <p class="text-lg"><strong>Viento Promedio:</strong> ${wind} km/h</p>
-                    <p class="text-lg mt-4"><strong>Resumen:</strong> ${summary}</p>
-                </div>
-            `;
-            
-            forecastResult.classList.remove('hidden');
-        }
-        
-        // --- Manejo del redimensionamiento de la ventana ---
-        window.addEventListener('resize', () => {
+        function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        }
 
+        // El bucle de animación. Por ahora, solo renderiza la escena.
+        function animate() {
+            renderer.render(scene, camera);
+        }
+
+        // --- Lógica de la Interfaz (aún no la conectamos) ---
+        // (Dejaremos este espacio para pegar tu lógica de UI en el siguiente paso)
+
+        // --- Manejo del redimensionamiento de la ventana ---
+        window.addEventListener('resize', onWindowResize);
     </script>
 </body>
 </html>
