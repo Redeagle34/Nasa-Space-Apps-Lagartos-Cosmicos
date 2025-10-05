@@ -63,3 +63,4 @@ Constraints:
 Standards:
 - Commits pequeños y atómicos; cada PR con título y descripción.
 - Siempre incluir un ejemplo curl o Postman collection.
+

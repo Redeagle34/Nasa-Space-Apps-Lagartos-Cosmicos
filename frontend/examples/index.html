@@ -228,22 +228,35 @@ form.addEventListener('submit',(e)=>{
 
 backButton.addEventListener('click',()=>resetView());
 
-function latLonToVector3(lat, lon, radius){
-    const phi = (90-lat)*(Math.PI/180);
-    const theta = (lon+180)*(Math.PI/180);
-    return new THREE.Vector3(
-        -(radius*Math.sin(phi)*Math.cos(theta)),
-        radius*Math.cos(phi),
-        radius*Math.sin(phi)*Math.sin(theta)
-    );
+function latLonToVector3(lat, lon, radius) {
+    // Esta función ya es correcta, solo la incluimos para tener el bloque completo.
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (lon + 180) * (Math.PI / 180);
+    const x = -(radius * Math.sin(phi) * Math.cos(theta));
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+    return new THREE.Vector3(x, y, z);
 }
 
-function zoomToLocation(lat, lon){}
-function resetView(){
-    targetPosition.set(0,0,5);
-    mainUI.style.opacity='1';
+function zoomToLocation(lat, lon) {
+    // --- CAMBIOS CLAVE AQUÍ ---
+    // 1. Usamos el nuevo radio del globo: 1
+    const target3D = latLonToVector3(lat, lon, 1); 
+
+    // 2. Acercamos mucho más la cámara, ya que el globo es más pequeño.
+    //    Un valor de 2.5 es bueno (antes era 10). Puedes ajustar este número si quieres.
+    const cameraOffset = target3D.clone().normalize().multiplyScalar(2.5);
+    
+    targetPosition.copy(cameraOffset);
+}
+
+function resetView() {
+    // --- CAMBIO CLAVE AQUÍ ---
+    // 1. La posición de reinicio ahora es 5 (antes era 15).
+    targetPosition.set(0, 0, 5);
+    mainUI.style.opacity = '1';
     forecastResult.classList.add('hidden');
-    forecastRequest=null;
+    forecastRequest = null;
 }
 
 function displayForecast(city, query){

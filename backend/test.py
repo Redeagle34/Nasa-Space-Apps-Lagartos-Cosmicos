@@ -2,6 +2,7 @@ import os
 import re
 import json
 import requests
+import time 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -54,52 +55,41 @@ def get_weather_data(lat: float, lon: float, dt: str) -> dict:
     try:
         # Construct API URL
         base_url = "https://api.openweathermap.org/data/2.5/weather"
+        week_gotten = {'week': []}
 
+        for i in range(7):  
+            # Parameters for the API call
+            params = {
+                'lat': lat,
+                'lon': lon,
+                'dt': convert_date_to_timestamp(dt) - i*86400,
+                'exclude': 'minutely',  # Exclude unnecessary data
+                'units': 'metric',  # Use metric units
+                'appid': OPEN_WEATHER_API_KEY
+            }
+            
+            logger.info(f"🌍 Fetching weather data for coordinates: {lat}, {lon}")
+            
+            # Make API request
+            response = requests.get(base_url, params=params)
+            response.raise_for_status()  # Raise exception for bad status codes
+            
+            weather_data = response.json()
+            
+            # Extract relevant data for ML model
+            processed_data = {
+                'day': {
+                    'temp': weather_data.get('main', {}).get('temp'),
+                    'humidity': weather_data.get('main', {}).get('humidity')
+                }
+            }
 
-        # Parameters for the API call
-        params = {
-            'lat': lat,
-            'lon': lon,
-            'dt': convert_date_to_timestamp(dt),
-            'exclude': 'minutely',  # Exclude unnecessary data
-            'units': 'metric',  # Use metric units
-            'appid': OPEN_WEATHER_API_KEY
-        }
+            week_gotten['week'].append(processed_data)
+
         
-        logger.info(f"🌍 Fetching weather data for coordinates: {lat}, {lon}")
-        
-        # Make API request
-        response = requests.get(base_url, params=params)
-        response.raise_for_status()  # Raise exception for bad status codes
-        
-        weather_data = response.json()
-        
-        # Extract relevant data for ML model
-        processed_data = {
-            'current': {
-                'temp': weather_data.get('current', {}).get('temp'),
-                'humidity': weather_data.get('current', {}).get('humidity'),
-                'precipitation': weather_data.get('current', {}).get('rain', {}).get('1h', 0)
-            },
-            'daily': []
-        }
-        
-        # Process daily data for the last 7 days
-        for day in weather_data.get('daily', [])[:7]:
-            processed_data['daily'].append({
-                'date': datetime.fromtimestamp(day['dt']).strftime('%Y-%m-%d'),
-                'temp': {
-                    'day': day.get('temp', {}).get('day'),
-                    'min': day.get('temp', {}).get('min'),
-                    'max': day.get('temp', {}).get('max')
-                },
-                'humidity': day.get('humidity'),
-                'precipitation': day.get('rain', 0),
-                'wind_speed': day.get('wind_speed')
-            })
             
         logger.info("✅ Weather data fetched successfully")
-        return processed_data
+        return week_gotten
         
     except requests.exceptions.RequestException as e:
         logger.error(f"❌ Error fetching weather data: {str(e)}")
