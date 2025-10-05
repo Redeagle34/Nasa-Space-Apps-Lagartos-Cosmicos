@@ -40,7 +40,7 @@ def convert_date_to_timestamp(date_str: str) -> int:
     except ValueError as e:
         logger.error(f"❌ Error converting date: {str(e)}")
         return None
-
+'''
 def get_weather_data(lat: float, lon: float, dt: str) -> dict:
     """
     Fetch weather data from OpenWeather API for given coordinates.
@@ -97,6 +97,57 @@ def get_weather_data(lat: float, lon: float, dt: str) -> dict:
             'error': f"Error fetching weather data: {str(e)}",
             'status': 'error'
         }
+'''
+
+def get_weather_data(lat: float, lon: float, dt: str) -> dict:
+    try:
+        # Construct API URL
+        base_url = "https://api.openweathermap.org/data/2.5/forecast"
+        week_gotten = {'week': []}
+        params = {
+                'lat': lat,
+                'lon': lon,
+                'units': 'metric',  # Use metric units
+                'appid': OPEN_WEATHER_API_KEY
+        }
+
+            
+            
+        logger.info(f"🌍 Fetching weather data for coordinates: {lat}, {lon}")
+            
+            # Make API request
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()  # Raise exception for bad status codes
+            
+        data = response.json()
+            
+            # Extract relevant data for ML model
+        processed_data = {'week': []}
+        for i in range(len(data['list'])):
+            item = data['list'][i]
+            date = datetime.fromtimestamp(item['dt'] + i*86400).strftime('%Y-%m-%d')
+            
+            day_data = {
+                'day': {
+                    'date': date,
+                    'temp': item['main']['temp'],
+                    'humidity': item['main']['humidity'],
+                }
+            }
+            processed_data['week'].append(day_data)
+
+        
+            
+        logger.info("✅ Weather data fetched successfully")
+        return processed_data
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Error fetching weather data: {str(e)}")
+        return {
+            'error': f"Error fetching weather data: {str(e)}",
+            'status': 'error'
+        }
+
 
 genai.configure(api_key="AIzaSyBJABA-YfpktIoijmG4OGgBKJd0frglAXI")
 gemini_model = genai.GenerativeModel('gemini-2.5-pro')
