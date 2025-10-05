@@ -19,29 +19,43 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            overflow: hidden; 
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-        }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
         #bg-canvas { position: fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
-        input::placeholder { color: rgba(255, 255, 255, 0.6); }
+        input::placeholder { color: #9ca3af; }
         .fade-in { transition: opacity 0.5s ease-in-out; }
         
-        /* Efectos glassmorphism más transparentes */
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.03);
+        /* Estilos glassmorphism mejorados */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
         }
         
-        /* Animaciones suaves */
-        .glass-effect:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            transform: translateY(-2px);
+        .glass-input {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             transition: all 0.3s ease;
+        }
+        
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .glass-button {
+            background: rgba(59, 130, 246, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .glass-button:hover {
+            background: rgba(59, 130, 246, 0.9);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+            transform: translateY(-2px);
         }
     </style>
 </head>
@@ -50,25 +64,37 @@
 <canvas id="bg-canvas"></canvas>
 
 <main id="main-ui" class="relative z-10 flex flex-col items-center justify-center h-screen p-4 fade-in">
-    <div class="bg-gradient-to-br from-white/0 via-white/0 to-white/0 backdrop-blur-sm border border-white/15 shadow-2xl rounded-3xl p-8 max-w-xl w-full text-white relative">
-        <div class="text-center">
-            <h1 class="text-3xl md:text-5xl font-bold mb-5">Cuéntame, ¿cuál es tu plan?</h1>
-            <p class="text-base md:text-lg text-gray-200 mb-6">Escribe un lugar y una fecha futura (ej. "París en 3 meses").</p>
-            <form id="location-form" class="flex flex-col sm:flex-row gap-3">
-                <input type="text" id="location-input" placeholder="Ej: Tokio en 6 meses..." class="w-full px-5 py-4 text-lg bg-white/5 backdrop-blur-sm border border-white/15 rounded-full focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-gray-300 transition-all duration-300 text-white">
-                <button type="submit" class="px-8 py-4 bg-gradient-to-r from-blue-500/80 to-blue-600/80 hover:from-blue-400/90 hover:to-blue-500/90 backdrop-blur-sm border border-blue-400/30 rounded-full text-lg font-semibold transition-all duration-300 shadow-lg">Visualizar</button>
-            </form>
-        </div>
+    <div class="glass-panel rounded-3xl p-8 max-w-xl w-full text-center">
+        <h1 class="text-3xl md:text-5xl font-bold mb-4">Cuéntame, ¿cuál es tu plan?</h1>
+        <p class="text-base md:text-lg text-gray-300 mb-6">Escribe un lugar y una fecha futura (ej. "París en 3 meses").</p>
+        <form id="location-form" class="flex flex-col sm:flex-row gap-3">
+            <input type="text" id="location-input" placeholder="Ej: Tokio en 6 meses..." class="glass-input w-full px-4 py-3 text-base rounded-full focus:ring-2 focus:ring-blue-400 focus:outline-none placeholder-gray-300 transition-all duration-300 text-white">
+            <button type="submit" class="glass-button px-6 py-3 rounded-full text-base font-semibold transition-all duration-300 shadow-lg">Visualizar</button>
+        </form>
     </div>
 </main>
 
+<!-- Panel de Loading -->
+<div id="loading-panel" class="hidden fixed top-0 left-0 w-full h-full z-40 flex items-center justify-center fade-in">
+    <div class="glass-panel rounded-3xl p-10 max-w-lg w-full text-white relative">
+        <div class="text-center">
+            <div class="mb-6">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+            </div>
+            <h2 id="loading-title" class="text-2xl font-bold mb-4">Cargando datos del planeta...</h2>
+            <p id="loading-message" class="text-lg text-gray-200 mb-6">Trazando la ruta hacia tu ciudad...</p>
+            <p id="loading-detail" class="text-sm text-gray-300">Conectando con los satélites...</p>
+        </div>
+    </div>
+</div>
+
 <div id="glass-panel" class="hidden fixed top-0 left-0 w-full h-full z-50 flex items-center justify-center fade-in">
-    <div class="bg-gradient-to-br from-white/0 via-white/0 to-white/0 backdrop-blur-sm border border-white/15 shadow-2xl rounded-3xl p-10 max-w-lg w-full text-white relative">
+    <div class="glass-panel rounded-3xl p-10 max-w-lg w-full text-white relative">
         <h2 id="glass-location" class="text-3xl font-bold mb-2 text-center"></h2>
         <p id="glass-coordinates" class="text-sm text-gray-200 mb-4 text-center"></p>
         <div id="glass-forecast" class="text-center text-lg space-y-2"></div>
         <p id="glass-gemini" class="mt-4 italic text-gray-200 text-center"></p>
-        <button id="glass-close" class="mt-6 w-full px-6 py-3 bg-gradient-to-r from-blue-500/80 to-blue-600/80 hover:from-blue-400/90 hover:to-blue-500/90 backdrop-blur-sm border border-blue-400/30 rounded-full font-semibold transition-all duration-300 shadow-lg">Regresar a Inicio</button>
+        <button id="glass-close" class="glass-button mt-6 w-full px-6 py-3 rounded-full font-semibold transition-all duration-300 relative z-10">Regresar a Inicio</button>
     </div>
 </div>
 
@@ -82,6 +108,12 @@ let forecastRequest = null;
 // Estado de la animación tipo ruleta
 let rouletteState = null; // { active, startTime, durationMs, initialYaw, extraSpin, targetLat, targetLon, targetLocal, resolve }
 let pendingZoomTimeout = null; // id de timeout para iniciar zoom antes del fin de la ruleta
+
+// Variables para el panel de loading
+let loadingPanel = null;
+let loadingTitle = null;
+let loadingMessage = null;
+let loadingDetail = null;
 
 // Variables de suavidad separadas
 const smoothingIn = 0.01;  // entrada lenta
@@ -183,6 +215,243 @@ function init() {
     renderer.setAnimationLoop(animate);
 }
 
+// Funciones para el panel de loading
+function showLoadingPanel(cityName) {
+    loadingPanel = document.getElementById('loading-panel');
+    loadingTitle = document.getElementById('loading-title');
+    loadingMessage = document.getElementById('loading-message');
+    loadingDetail = document.getElementById('loading-detail');
+    
+    // Mensajes dinámicos basados en la ciudad
+    const messages = getLoadingMessages(cityName);
+    
+    loadingTitle.textContent = messages.title;
+    loadingMessage.textContent = messages.message;
+    loadingDetail.textContent = messages.detail;
+    
+    // Mostrar panel
+    loadingPanel.classList.remove('hidden');
+    loadingPanel.style.transition = `opacity ${fadeDurationIn}ms ease-in-out`;
+    loadingPanel.style.opacity = '0';
+    setTimeout(() => {
+        loadingPanel.style.opacity = '1';
+    }, 10);
+    
+    // Iniciar mensajes dinámicos
+    startLoadingProgress();
+}
+
+function getLoadingMessages(cityName) {
+    const cityDisplayName = capitalizeCityName(cityName);
+    
+    const messageSets = [
+        // Mensajes de inicio - Exploración espacial
+        {
+            title: "🚀 Iniciando secuencia de lanzamiento...",
+            message: "Despegando hacia el espacio...",
+            detail: "Activando propulsores principales..."
+        },
+        {
+            title: "🌍 Escaneando la Tierra desde el espacio...",
+            message: "Localizando tu destino en el planeta...",
+            detail: "Satélites GPS sincronizados ✅"
+        },
+        {
+            title: "🛰️ Conectando con la red de satélites...",
+            message: "Estableciendo comunicación orbital...",
+            detail: "Señal fuerte desde la Estación Espacial Internacional"
+        },
+        
+        // Mensajes de navegación - Viaje
+        {
+            title: "🧭 Calculando trayectoria óptima...",
+            message: `Navegando hacia ${cityDisplayName}...`,
+            detail: "Evitando tormentas espaciales..."
+        },
+        {
+            title: "⚡ Activando motores de crucero...",
+            message: `Viajando a velocidad warp hacia ${cityDisplayName}...`,
+            detail: "Velocidad: 28,000 km/h"
+        },
+        {
+            title: "🌌 Cruzando el espacio-tiempo...",
+            message: `Teletransportándonos a ${cityDisplayName}...`,
+            detail: "Distorsión temporal: 0.003 segundos"
+        },
+        {
+            title: "🎯 Ajustando coordenadas precisas...",
+            message: `Apuntando hacia ${cityDisplayName}...`,
+            detail: "Precisión: ±0.001 grados"
+        },
+        
+        // Mensajes de análisis - Datos
+        {
+            title: "📡 Descargando datos meteorológicos...",
+            message: `Analizando clima de ${cityDisplayName}...`,
+            detail: "Procesando 2.3 TB de información..."
+        },
+        {
+            title: "🌡️ Escaneando patrones climáticos...",
+            message: `Estudiando la atmósfera de ${cityDisplayName}...`,
+            detail: "IA meteorológica trabajando..."
+        },
+        {
+            title: "☁️ Mapeando sistemas de nubes...",
+            message: `Observando el cielo de ${cityDisplayName}...`,
+            detail: "Resolución: 4K ultra HD"
+        },
+        {
+            title: "🌪️ Detectando corrientes de aire...",
+            message: `Monitoreando vientos en ${cityDisplayName}...`,
+            detail: "Sensores ultrasónicos activos"
+        },
+        
+        // Mensajes de preparación - Finalización
+        {
+            title: "🎬 Preparando vista cinematográfica...",
+            message: `Optimizando visualización de ${cityDisplayName}...`,
+            detail: "Renderizando en tiempo real..."
+        },
+        {
+            title: "✨ Aplicando efectos especiales...",
+            message: `Pulindo la vista de ${cityDisplayName}...`,
+            detail: "Filtros atmosféricos activados"
+        },
+        {
+            title: "🎯 Enfocando objetivo principal...",
+            message: `Centrando cámara en ${cityDisplayName}...`,
+            detail: "Estabilización óptica completa"
+        },
+        {
+            title: "🚀 Preparando aterrizaje suave...",
+            message: `Descendiendo hacia ${cityDisplayName}...`,
+            detail: "Tren de aterrizaje desplegado"
+        },
+        
+        // Mensajes especiales por ciudad
+        {
+            title: "🗼 Escaneando la Torre Eiffel...",
+            message: "París detectada en el horizonte...",
+            detail: "Señal de croissants frescos recibida 🥐"
+        },
+        {
+            title: "🏰 Localizando el Big Ben...",
+            message: "Londres identificada por su acento...",
+            detail: "Té de las 5 en punto confirmado ☕"
+        },
+        {
+            title: "🗾 Detectando el Monte Fuji...",
+            message: "Tokio localizada por su tecnología...",
+            detail: "Robots de servicio activos 🤖"
+        },
+        {
+            title: "🗽 Escaneando la Estatua de la Libertad...",
+            message: "Nueva York identificada por su energía...",
+            detail: "Taxi amarillo detectado 🚕"
+        },
+        {
+            title: "🏛️ Localizando las pirámides...",
+            message: "El Cairo encontrado en el desierto...",
+            detail: "Momias verificando datos 📜"
+        },
+        {
+            title: "🏖️ Detectando playas de Copacabana...",
+            message: "Río de Janeiro localizada por su samba...",
+            detail: "Carnaval en modo standby 🎭"
+        },
+        {
+            title: "🌮 Escaneando tacos auténticos...",
+            message: "Ciudad de México identificada...",
+            detail: "Salsa picante nivel máximo 🌶️"
+        },
+        {
+            title: "🦘 Detectando canguros saltarines...",
+            message: "Sídney localizada en Oceanía...",
+            detail: "Opera House sintonizada 🎭"
+        }
+    ];
+    
+    // Filtrar mensajes específicos de la ciudad si existen
+    const citySpecificMessages = messageSets.filter(msg => 
+        msg.message.includes(cityDisplayName) || 
+        msg.title.toLowerCase().includes(cityName.toLowerCase())
+    );
+    
+    // Si hay mensajes específicos de la ciudad, usar uno de esos
+    if (citySpecificMessages.length > 0) {
+        return citySpecificMessages[Math.floor(Math.random() * citySpecificMessages.length)];
+    }
+    
+    // Si no, usar cualquier mensaje aleatorio
+    return messageSets[Math.floor(Math.random() * messageSets.length)];
+}
+
+function capitalizeCityName(cityName) {
+    const cityMap = {
+        'tokio': 'Tokio',
+        'paris': 'París',
+        'londres': 'Londres',
+        'new york': 'Nueva York',
+        'sydney': 'Sídney',
+        'el cairo': 'El Cairo',
+        'rio de janeiro': 'Río de Janeiro',
+        'mexico': 'Ciudad de México'
+    };
+    
+    return cityMap[cityName.toLowerCase()] || cityName.charAt(0).toUpperCase() + cityName.slice(1);
+}
+
+function startLoadingProgress() {
+    // Cambiar mensajes dinámicamente durante la carga
+    const messageChangeInterval = 2000; // Cambiar cada 2 segundos
+    
+    // Cambiar mensajes dinámicamente
+    const messageTimer = setInterval(() => {
+        if (loadingTitle && loadingMessage && loadingDetail) {
+            const currentCity = forecastRequest ? forecastRequest.city : "tokio";
+            const newMessages = getLoadingMessages(currentCity);
+            
+            // Animación de fade out/in para cambio suave
+            loadingTitle.style.transition = "opacity 0.3s ease";
+            loadingMessage.style.transition = "opacity 0.3s ease";
+            loadingDetail.style.transition = "opacity 0.3s ease";
+            
+            loadingTitle.style.opacity = "0";
+            loadingMessage.style.opacity = "0";
+            loadingDetail.style.opacity = "0";
+            
+            setTimeout(() => {
+                loadingTitle.textContent = newMessages.title;
+                loadingMessage.textContent = newMessages.message;
+                loadingDetail.textContent = newMessages.detail;
+                
+                loadingTitle.style.opacity = "1";
+                loadingMessage.style.opacity = "1";
+                loadingDetail.style.opacity = "1";
+            }, 300);
+        }
+    }, messageChangeInterval);
+    
+    // Limpiar el timer cuando se oculte el panel
+    window.currentMessageTimer = messageTimer;
+}
+
+
+function hideLoadingPanel() {
+    if (loadingPanel) {
+        loadingPanel.style.transition = `opacity ${fadeDurationOut}ms ease-in-out`;
+        loadingPanel.style.opacity = '0';
+        setTimeout(() => {
+            loadingPanel.classList.add('hidden');
+            // Limpiar solo el timer de mensajes, el progreso se maneja con requestAnimationFrame
+            if (window.currentMessageTimer) {
+                clearInterval(window.currentMessageTimer);
+                window.currentMessageTimer = null;
+            }
+        }, fadeDurationOut);
+    }
+}
+
 function onWindowResize(){
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
@@ -244,9 +513,6 @@ const sampleBackendData = {
 };
 
 function showGlassPanel(data){
-    
- 
-
     document.getElementById('glass-location').textContent = data.city;
     document.getElementById('glass-coordinates').textContent = `Lat: ${data.lat}, Lon: ${data.lon}`;
     document.getElementById('glass-forecast').innerHTML = `<p><strong>Temperatura:</strong> ${data.temperature}°C</p><p><strong>Precipitación:</strong> ${data.precipitation}%</p>`;
@@ -276,78 +542,72 @@ const cityCoordinates = {
     'rio de janeiro':{lat:-22.9068, lon:-43.1729},
     'mexico':{lat:19.4326, lon:-99.1332}
 };
-
 const BACKEND_URL = 'http://localhost:5000/api/weather';
-form.addEventListener('submit', (e)=>{
+async function sendPromptToBackend(prompt) {
+    try {
+        console.log('🚀 Enviando prompt al backend:', prompt);
+        
+        const response = await fetch(BACKEND_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt: prompt })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('✅ Respuesta del backend:', data);
+        
+        return data;
+        
+    } catch (error) {
+        console.error('❌ Error conectando con backend:', error);
+        return {
+            interpretation: 'Error de conexión con el servidor. Por favor verifica que el backend esté corriendo en puerto 5000.',
+            precipitation: 'N/A'
+        };
+    }
+}
+form.addEventListener('submit',(e)=>{
     e.preventDefault();
     const query = input.value.toLowerCase().trim();
     if(!query) return;
-
-    // Decide la ciudad localmente (rápido) para poder iniciar animación
+    console.log('🔍 Procesando consulta:', query);
+    
+    const backendPromise = sendPromptToBackend(query);
     const foundCity = Object.keys(cityCoordinates).find(city=>query.includes(city));
-
-    // Limpiar timeouts previos
-    if(pendingZoomTimeout){ clearTimeout(pendingZoomTimeout); pendingZoomTimeout = null; }
-
     if(foundCity){
         const {lat,lon} = cityCoordinates[foundCity];
+        
+        // Limpia cualquier timeout previo
+        if(pendingZoomTimeout){ clearTimeout(pendingZoomTimeout); pendingZoomTimeout = null; }
 
-        // Marca que hay una petición en curso (no bloqueante)
-        forecastRequest = {city:foundCity, query, loading:true};
-
-        // Inicia la ruleta inmediatamente (mientras el fetch corre en segundo plano)
-        const durationMs = 7000;
+        const durationMs = 20000; // 10 segundos para dar tiempo al backend
+        // Inicia ruleta PRIMERO
         const p = startRouletteAnimation(lat, lon, { durationMs, extraTurns: 6 });
-        const earlyMs = 1800;
+        
+        // MOSTRAR panel de loading DESPUÉS de iniciar la ruleta (para sincronización)
+        setTimeout(() => {
+            showLoadingPanel(foundCity);
+        }, 50); // Delay mínimo para asegurar que rouletteState esté disponible
+        
+        // Inicia zoom ~2.5s antes del fin para un enlace más suave
+        const earlyMs = 2500;
         pendingZoomTimeout = setTimeout(()=>{
             pendingZoomTimeout = null;
-            zoomToLocation(lat, lon + 4, foundCity);
+            hideLoadingPanel(); // Ocultar panel de loading
+            zoomToLocation(lat,lon, foundCity);
         }, Math.max(0, durationMs - earlyMs));
-        p.then(()=>{/* no-op */});
-
-        // Lanzar fetch en background sin bloquear la animación
-        fetch(BACKEND_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: query })
-        })
-        .then(resp => {
-            if(!resp.ok) throw new Error('Network response was not ok');
-            return resp.json();
-        })
-        .then(data => {
-            // Si el panel ya está abierto, actualizarlo; si no, adjuntar a forecastRequest
-            if(!glassPanel.classList.contains('hidden')){
-                document.getElementById('glass-location').textContent = data.city ?? foundCity;
-                document.getElementById('glass-coordinates').textContent = `Lat: ${data.lat ?? lat}, Lon: ${data.lon ?? lon}`;
-                document.getElementById('glass-forecast').innerHTML = `<p><strong>Temperatura:</strong> ${data.temperature ?? 'N/A'}°C</p><p><strong>Precipitación:</strong> ${data.precipitation ?? 'N/A'}%</p>`;
-                document.getElementById('glass-gemini').textContent = `Interpretación Gemini: ${data.gemini ?? ''}`;
-            } else {
-                forecastRequest.data = data;
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error conectando con backend:', error);
-            // Guardar fallback en forecastRequest para uso posterior
-            forecastRequest.data = sampleBackendData;
-        });
-
+        p.then(()=>{/* no-op: zoom ya disparado antes */});
+        forecastRequest = {city:foundCity, query};
     } else {
-        // No se reconoce la ciudad: realiza zoom general y marca petición en curso
         targetPosition.set(0,0,2.5);
-        forecastRequest = {city:"un lugar desconocido", query, loading:true};
-
-        // También intentar la petición de backend en background
-        fetch(BACKEND_URL, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: query })
-        })
-        .then(resp => resp.ok ? resp.json() : Promise.reject(new Error('Network response was not ok')))
-        .then(data => { forecastRequest.data = data; })
-        .catch(err => { console.error('❌ Error conectando con backend:', err); forecastRequest.data = sampleBackendData; });
+        forecastRequest={city:"un lugar desconocido", query};
     }
-
-    // Oculta la UI principal de forma inmediata
     mainUI.style.opacity='0';
 });
 
@@ -938,6 +1198,61 @@ window.getTextureOffset = function() {
 
 // Expone la API global sin tocar UI/cámara
 window.startRouletteAnimation = startRouletteAnimation;
+
+window.testLoadingPanel = function(cityName = "tokio") {
+    console.log(`Probando panel de loading con mensajes dinámicos para ${cityName}`);
+    showLoadingPanel(cityName);
+    
+    // Simular duración de carga
+    setTimeout(() => {
+        console.log("Panel de loading funcionando perfectamente!");
+        hideLoadingPanel();
+    }, 10000);
+};
+
+window.showLoading = function(cityName = "paris") {
+    showLoadingPanel(cityName);
+};
+
+window.hideLoading = function() {
+    hideLoadingPanel();
+};
+
+// Funciones adicionales para probar mensajes dinámicos
+window.testAllCities = function() {
+    const cities = ['tokio', 'paris', 'londres', 'mexico', 'new york', 'sydney', 'el cairo', 'rio de janeiro'];
+    let currentIndex = 0;
+    
+    function testNextCity() {
+        if (currentIndex >= cities.length) {
+            console.log("Todas las ciudades probadas. ¡Mensajes súper dinámicos!");
+            return;
+        }
+        
+        const city = cities[currentIndex];
+        console.log(`Probando mensajes dinámicos para ${city}...`);
+        showLoadingPanel(city);
+        
+        currentIndex++;
+        setTimeout(() => {
+            hideLoadingPanel();
+            setTimeout(testNextCity, 1000);
+        }, 5000);
+    }
+    
+    testNextCity();
+};
+
+window.testRandomMessages = function(cityName = "tokio") {
+    console.log(`Probando mensajes aleatorios para ${cityName}`);
+    console.log("Los mensajes cambiarán cada 2 segundos automáticamente");
+    showLoadingPanel(cityName);
+    
+    setTimeout(() => {
+        console.log("Mensajes dinámicos funcionando perfectamente!");
+        hideLoadingPanel();
+    }, 10000);
+};
 </script>
 </body>
 </html>

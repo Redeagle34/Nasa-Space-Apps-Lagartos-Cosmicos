@@ -190,6 +190,8 @@ def format_prediction_with_gemini(prediction_data):
             "table": f"| Métrica | Valor |\n|---------|-------|\n| Temperatura | {temp}°C |\n| Humedad | {humidity}% |\n| Descripción | {description} |"
         }
 
+
+
 # --- API ENDPOINTS ---
 
 @app.route('/api/weather', methods=['POST'])
