@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "../build/three.webgpu.js",
+            "three/webgpu": "../build/three.webgpu.js",
+            "three/tsl": "../build/three.tsl.js",
+            "three/addons/": "./jsm/"
+        }
+    }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pronóstico Futurista</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Evita barras de scroll por el canvas */
+        }
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0; /* Coloca el canvas detrás del contenido */
+        }
+        /* Estilo para el placeholder del input */
+        input::placeholder {
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- Contenedor para la escena 3D de Three.js -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Contenedor principal de la UI -->
+    <main class="relative z-10 flex flex-col items-center justify-center h-screen p-4 transition-opacity duration-1000" id="main-ui">
+        <div class="text-center w-full max-w-2xl">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6 text-shadow-lg">Cuéntame, ¿cuál es tu plan?</h1>
+            <p class="text-lg md:text-xl text-gray-300 mb-8">Escribe un lugar y una fecha futura (ej. "París en 3 meses") para obtener un pronóstico especulativo.</p>
+            
+            <form id="location-form" class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="location-input" placeholder="Ej: Tokio en 6 meses..." class="w-full px-5 py-4 text-lg bg-gray-800 bg-opacity-70 border border-gray-600 rounded-full focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-gray-500 transition-all duration-300">
+                <button type="submit" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-full text-lg font-semibold transition-all duration-300">
+                    Visualizar
+                </button>
+            </form>
+        </div>
+    </main>
+    
+    <!-- Contenedor para mostrar los resultados del pronóstico -->
+    <div id="forecast-result" class="hidden absolute z-20 top-0 left-0 w-full h-full flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+        <div class="bg-gray-800 bg-opacity-80 p-8 rounded-2xl shadow-2xl max-w-md w-full border border-gray-700">
+            <h2 class="text-3xl font-bold mb-2" id="forecast-location"></h2>
+            <p class="text-lg text-blue-300 mb-6" id="forecast-date"></p>
+            <div id="forecast-details">
+                <!-- El contenido del pronóstico se insertará aquí -->
+            </div>
+             <p class="text-sm text-gray-400 mt-6 italic">Nota: Este es un pronóstico simulado con fines demostrativos.</p>
+            <button id="back-button" class="w-full mt-6 px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-full text-lg font-semibold transition-colors">Volver</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { step, normalWorldGeometry, output, texture, vec3, vec4, normalize, positionWorld, bumpMap, cameraPosition, color, uniform, mix, uv, max } from 'three/tsl';
+
+        // --- Declaración de variables globales ---
+        let camera, scene, renderer, globe, clock;
+
+        // --- Variables de la UI que conservamos ---
+        let targetPosition = new THREE.Vector3(0, 0, 5); // Posición inicial ajustada para el nuevo globo
+        let forecastRequest = null;
+
+        // --- Lógica principal ---
+        init();
+
+        function init() {
+            clock = new THREE.Clock();
+
+            camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 5); // Posición inicial más cercana
+
+            scene = new THREE.Scene();
+            scene.background = null;
+
+            // Sol (Luz direccional)
+            const sun = new THREE.DirectionalLight('#ffffff', 2.5);
+            sun.position.set(3, 0, 3);
+            scene.add(sun);
+
+            // Texturas
+            const textureLoader = new THREE.TextureLoader();
+            const dayTexture = textureLoader.load('./textures/planets/earth_day_4096.jpg');
+            dayTexture.colorSpace = THREE.SRGBColorSpace;
+            dayTexture.anisotropy = 8;
+
+            const nightTexture = textureLoader.load('./textures/planets/earth_night_4096.jpg');
+            nightTexture.colorSpace = THREE.SRGBColorSpace;
+            nightTexture.anisotropy = 8;
+
+            const bumpRoughnessCloudsTexture = textureLoader.load('./textures/planets/earth_bump_roughness_clouds_4096.jpg');
+            bumpRoughnessCloudsTexture.anisotropy = 8;
+
+            // --- Creación del Globo Terráqueo (Lógica de Shaders de WebGPU) ---
+            const sphereGeometry = new THREE.SphereGeometry(1, 64, 64); // Radio de 1
+
+            // Material del globo
+            const globeMaterial = new THREE.MeshStandardNodeMaterial();
+            const cloudsStrength = texture(bumpRoughnessCloudsTexture, uv()).b.smoothstep(0.2, 1);
+            globeMaterial.colorNode = mix(texture(dayTexture), vec3(1), cloudsStrength.mul(2));
+            const roughness = max(texture(bumpRoughnessCloudsTexture).g, step(0.01, cloudsStrength));
+            globeMaterial.roughnessNode = roughness.remap(0, 1, uniform(1), uniform(0.2));
+
+            const night = texture(nightTexture);
+            const sunOrientation = normalWorldGeometry.dot(normalize(sun.position)).toVar();
+            const dayStrength = sunOrientation.smoothstep(-0.25, 0.5);
+
+            const viewDirection = positionWorld.sub(cameraPosition).normalize();
+            const fresnel = viewDirection.dot(normalWorldGeometry).abs().oneMinus().toVar();
+
+            const atmosphereDayColor = uniform(color('#4479a2'));
+            const atmosphereTwilightColor = uniform(color('#000000'));
+            const atmosphereColor = mix(atmosphereTwilightColor, atmosphereDayColor, sunOrientation.smoothstep(-0.25, 0.75));
+
+            const atmosphereDayStrength = sunOrientation.smoothstep(-0.5, 1);
+            const atmosphereMix = atmosphereDayStrength.mul(fresnel.pow(2)).clamp(0, 1);
+
+            let finalOutput = mix(night.rgb, globeMaterial.colorNode, dayStrength);
+            finalOutput = mix(finalOutput, atmosphereColor, atmosphereMix);
+            globeMaterial.outputNode = vec4(finalOutput, output.a);
+
+            const bumpElevation = max(texture(bumpRoughnessCloudsTexture).r, cloudsStrength);
+            globeMaterial.normalNode = bumpMap(bumpElevation);
+
+            globe = new THREE.Mesh(sphereGeometry, globeMaterial);
+            scene.add(globe);
+
+            // Material de la atmósfera
+            const atmosphereMaterial = new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide, transparent: true });
+            let alpha = fresnel.remap(0.73, 1, 1, 0).pow(3);
+            alpha = alpha.mul(sunOrientation.smoothstep(-0.5, 1));
+            atmosphereMaterial.outputNode = vec4(atmosphereColor, alpha);
+
+            const atmosphere = new THREE.Mesh(sphereGeometry, atmosphereMaterial);
+            atmosphere.scale.setScalar(1.04);
+            scene.add(atmosphere);
+
+	     // --- Starfield background (Points) ---
+            // Create a small round sprite for star points
+            const starCanvas = document.createElement('canvas');
+            starCanvas.width = starCanvas.height = 64;
+            const sc = starCanvas.getContext('2d');
+            const grd = sc.createRadialGradient(32, 32, 0, 32, 32, 32);
+            grd.addColorStop(0, 'rgba(255,255,255,1)');
+            grd.addColorStop(0.2, 'rgba(255,255,255,0.9)');
+            grd.addColorStop(0.4, 'rgba(200,200,255,0.6)');
+            grd.addColorStop(1, 'rgba(0,0,0,0)');
+            sc.fillStyle = grd;
+            sc.fillRect(0, 0, 64, 64);
+            const starMap = new THREE.CanvasTexture(starCanvas);
+
+            // Create many random points on a large sphere shell
+            const starCount = 8000; // tweak for density/perf
+            const positions = new Float32Array(starCount * 3);
+            const radius = 60; // distance of star shell
+            for (let i = 0; i < starCount; i++) {
+                // random point on sphere with some radial scatter
+                const u = Math.random();
+                const v = Math.random();
+                const theta = 2 * Math.PI * u;
+                const phi = Math.acos(2 * v - 1);
+                const r = radius + (Math.random() - 0.5) * 6; // slight depth variation
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+                const idx = i * 3;
+                positions[idx] = x;
+                positions[idx + 1] = y;
+                positions[idx + 2] = z;
+            }
+            const starsGeo = new THREE.BufferGeometry();
+            starsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            const starsMat = new THREE.PointsMaterial({
+                size: 5.5,
+                sizeAttenuation: true,
+                map: starMap,
+                transparent: true,
+                depthWrite: false,
+                color: 0xffffff,
+                opacity: 0.9
+            });
+
+            const starPoints = new THREE.Points(starsGeo, starsMat);
+            starPoints.frustumCulled = false; // keep visible when camera near center
+            scene.add(starPoints);
+            // --- end starfield ---
+
+
+            // Renderer
+            renderer = new THREE.WebGPURenderer({
+                canvas: document.querySelector('#bg-canvas'), // Usamos tu canvas existente
+                antialias: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setAnimationLoop(animate); // Usamos el bucle de animación del renderer
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // El bucle de animación. Por ahora, solo renderiza la escena.
+        function animate() {
+            const delta = clock.getDelta();
+
+            // Rotación continua del globo si no estamos viendo un pronóstico
+            if (!forecastRequest) {
+                globe.rotation.y += delta * 0.1;
+            }
+
+            // Interpola suavemente la posición de la cámara hacia su objetivo
+            camera.position.lerp(targetPosition, 0.05);
+            camera.lookAt(0, 0, 0);
+
+            // Muestra el pronóstico solo cuando la cámara ha llegado a su destino
+            if (forecastRequest && camera.position.distanceTo(targetPosition) < 0.1) {
+                displayForecast(forecastRequest.city, forecastRequest.query);
+                forecastRequest = null; // Evita que la función se llame repetidamente
+            }
+
+            // Renderiza la escena
+            renderer.render(scene, camera);
+        }
+
+        // --- Lógica de la Interfaz (aún no la conectamos) ---
+        // --- Lógica de la Interfaz ---
+        const form = document.getElementById('location-form');
+        const input = document.getElementById('location-input');
+        const mainUI = document.getElementById('main-ui');
+        const forecastResult = document.getElementById('forecast-result');
+        const backButton = document.getElementById('back-button');
+
+        const cityCoordinates = {
+            'tokio': { lat: 35.6895, lon: 139.6917 },
+            'paris': { lat: 48.8566, lon: 2.3522 },
+            'londres': { lat: 51.5074, lon: -0.1278 },
+            'new york': { lat: 40.7128, lon: -74.0060 },
+            'sydney': { lat: -33.8688, lon: 151.2093 },
+            'el cairo': { lat: 30.0444, lon: 31.2357 },
+            'rio de janeiro': { lat: -22.9068, lon: -43.1729 },
+            'mexico': { lat: 19.4326, lon: -99.1332 }
+        };
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const query = input.value.toLowerCase().trim();
+            if (!query) return;
+
+            const foundCity = Object.keys(cityCoordinates).find(city => query.includes(city));
+
+            if (foundCity) {
+                const { lat, lon } = cityCoordinates[foundCity];
+                zoomToLocation(lat, lon); // Esta función la definiremos mejor en el Paso 4
+                forecastRequest = { city: foundCity, query: query };
+            } else {
+                targetPosition.set(0, 0, 2.5); // Acercamiento genérico
+                forecastRequest = { city: "un lugar desconocido", query: query };
+            }
+            mainUI.style.opacity = '0';
+        });
+
+        backButton.addEventListener('click', () => {
+            resetView();
+        });
+
+        function latLonToVector3(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const y = radius * Math.cos(phi);
+            const z = radius * Math.sin(phi) * Math.sin(theta);
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Dejamos esta función casi vacía por ahora, la completaremos en el siguiente paso.
+        function zoomToLocation(lat, lon) {}
+
+        function resetView() {
+            targetPosition.set(0, 0, 5); // Volvemos a la posición inicial
+            mainUI.style.opacity = '1';
+            forecastResult.classList.add('hidden');
+            forecastRequest = null;
+        }
+
+        function displayForecast(city, query) {
+            const forecastLocation = document.getElementById('forecast-location');
+            const forecastDate = document.getElementById('forecast-date');
+            const forecastDetails = document.getElementById('forecast-details');
+            
+            const timeMatch = query.match(/en (\d+ \w+)/);
+            const dateText = timeMatch ? `Para ${timeMatch[1]}` : 'En un futuro cercano';
+
+            forecastLocation.textContent = city.charAt(0).toUpperCase() + city.slice(1);
+            forecastDate.textContent = dateText;
+            
+            const temp = (Math.random() * 25 + 5).toFixed(1);
+            const precipitation = (Math.random() * 100).toFixed(0);
+            const wind = (Math.random() * 30 + 5).toFixed(1);
+            const summaries = ["Se esperan condiciones climáticas estables.", "Posibilidad de eventos meteorológicos anómalos.", "Tendencia a temperaturas por encima de la media histórica.", "Periodos de sequía alternados con lluvias intensas."];
+            const summary = summaries[Math.floor(Math.random() * summaries.length)];
+
+            forecastDetails.innerHTML = `
+                <div class="space-y-4 text-left">
+                    <p class="text-lg"><strong>Temperatura Promedio:</strong> ${temp}°C</p>
+                    <p class="text-lg"><strong>Probabilidad de Precipitación:</strong> ${precipitation}%</p>
+                    <p class="text-lg"><strong>Viento Promedio:</strong> ${wind} km/h</p>
+                    <p class="text-lg mt-4"><strong>Resumen:</strong> ${summary}</p>
+                </div>
+            `;
+            
+            forecastResult.classList.remove('hidden');
+        }
+        // (Dejaremos este espacio para pegar tu lógica de UI en el siguiente paso)
+
+        // --- Manejo del redimensionamiento de la ventana ---
+        window.addEventListener('resize', onWindowResize);
+    </script>
+</body>
+</html>
+
