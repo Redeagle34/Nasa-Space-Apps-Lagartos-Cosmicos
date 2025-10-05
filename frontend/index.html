@@ -737,6 +737,8 @@ form.addEventListener('submit', async (e) => {
         }
     }
 
+    
+
     // Limpia cualquier timeout previo
     if (pendingZoomTimeout) { 
         clearTimeout(pendingZoomTimeout); 
@@ -766,7 +768,7 @@ form.addEventListener('submit', async (e) => {
     mainUI.style.opacity = '0';
 });
 
-async function zoomToLocationAI(lat, lon, cityName, weatherData, backendPromise){
+async function zoomToLocationAI(lat, lon, cityName, weatherData){
     const target3D = latLonToVector3(lat, lon, 1);
     
     // Aplica la rotación actual del globo al punto objetivo
@@ -776,8 +778,7 @@ async function zoomToLocationAI(lat, lon, cityName, weatherData, backendPromise)
     const cameraOffset = rotatedTarget.clone().normalize().multiplyScalar(2); // Aumentado de 2.5 a 3.5 para menos zoom
     targetPosition.copy(cameraOffset);
     
-    // Fetch real-time weather data
-    
+    const weatherData = await fetchWeatherData(lat, lon);
     // Create dynamic data based on the searched city with real weather
     const dynamicData = {
         city: cityName,
